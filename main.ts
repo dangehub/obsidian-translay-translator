@@ -474,6 +474,11 @@ export default class KissTranslatorPlugin extends Plugin {
 		menu.className = "kiss-scope-menu";
 		menu.style.left = `${x}px`;
 		menu.style.top = `${y}px`;
+		const conflictMsg = "KISS Translator: 隐藏原文、悬停原文与编辑模式不能同时开启。";
+		if (this.settings.hideOriginal && this.settings.smartOriginal && this.settings.editMode) {
+			this.settings.smartOriginal = false;
+			this.saveSettings();
+		}
 
 		const title = document.createElement("div");
 		title.textContent = "选择 UI 词典";
@@ -502,7 +507,13 @@ export default class KissTranslatorPlugin extends Plugin {
 		editInput.type = "checkbox";
 		editInput.checked = !!this.settings.editMode;
 		editInput.onchange = async () => {
-			this.settings.editMode = editInput.checked;
+			const next = !!editInput.checked;
+			if (next && this.settings.hideOriginal && this.settings.smartOriginal) {
+				editInput.checked = false;
+				new Notice(conflictMsg);
+				return;
+			}
+			this.settings.editMode = next;
 			await this.saveSettings();
 			this.session?.updateSettings(this.settings);
 			this.uiSession?.updateSettings(this.settings);
@@ -520,7 +531,13 @@ export default class KissTranslatorPlugin extends Plugin {
 		hideInput.type = "checkbox";
 		hideInput.checked = this.settings.hideOriginal;
 		hideInput.onchange = async () => {
-			this.settings.hideOriginal = hideInput.checked;
+			const next = !!hideInput.checked;
+			if (next && this.settings.smartOriginal && this.settings.editMode) {
+				hideInput.checked = false;
+				new Notice(conflictMsg);
+				return;
+			}
+			this.settings.hideOriginal = next;
 			await this.saveSettings();
 			if (this.session) {
 				this.session.updateSettings(this.settings);
@@ -552,7 +569,14 @@ export default class KissTranslatorPlugin extends Plugin {
 		smartInput.checked = !!this.settings.smartOriginal;
 		smartInput.disabled = !this.settings.hideOriginal;
 		smartInput.onchange = async () => {
-			this.settings.smartOriginal = !!smartInput.checked;
+			const next = !!smartInput.checked;
+			if (next && this.settings.hideOriginal && this.settings.editMode) {
+				smartInput.checked = false;
+				this.settings.smartOriginal = false;
+				new Notice(conflictMsg);
+				return;
+			}
+			this.settings.smartOriginal = next;
 			await this.saveSettings();
 		};
 		const smartText = document.createElement("span");
