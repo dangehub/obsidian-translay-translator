@@ -33,7 +33,7 @@ export class TranslationSession {
 		this.promptSig = (settings.systemPrompt || "") + (settings.userPrompt || "");
 	}
 
-	async translate(rootOverride?: HTMLElement) {
+	async translate(rootOverride?: HTMLElement, options?: { reuseOnly?: boolean }) {
 		const root = rootOverride ?? this.findPreviewRoot();
 		if (!root) {
 			throw new Error("未找到可翻译的区域。");
@@ -41,9 +41,9 @@ export class TranslationSession {
 
 		this.clear();
 
-		const blocks = this.collectBlocks(root);
+		const blocks = this.collectBlocks(root, options?.reuseOnly);
 		for (const block of blocks) {
-			await this.translateBlock(block);
+			await this.translateBlock(block, options?.reuseOnly);
 		}
 
 		this.applyOriginalVisibility();
@@ -95,7 +95,7 @@ export class TranslationSession {
 		return document.body;
 	}
 
-	private collectBlocks(root: HTMLElement): HTMLElement[] {
+	private collectBlocks(root: HTMLElement, reuseOnly?: boolean): HTMLElement[] {
 		const selector =
 			"p, li, blockquote, h1, h2, h3, h4, h5, h6, td, th, pre, button, label, span, div";
 		const maxLen = this.settings.maxTextLength ?? 160;
@@ -132,11 +132,11 @@ export class TranslationSession {
 		return text.replace(/\s+/g, " ").trim();
 	}
 
-	private async translateBlock(block: HTMLElement) {
+	private async translateBlock(block: HTMLElement, reuseOnly?: boolean) {
 		const text = this.normalizeText(block.innerText || "");
 		if (!text || text.length < 2) return;
 
-		const translated = await this.translateText(text);
+		const translated = await this.translateText(text, reuseOnly);
 		if (!translated) return;
 
 		const translation = document.createElement(this.isBlockNode(block) ? "div" : "span");
@@ -314,7 +314,7 @@ export class TranslationSession {
 		return null;
 	}
 
-	private async translateText(text: string): Promise<string> {
+	private async translateText(text: string, reuseOnly?: boolean): Promise<string> {
 		const cached = this.cache.get(text);
 		if (cached) return cached;
 
@@ -335,29 +335,24 @@ export class TranslationSession {
 				return hit.translated;
 			}
 			// 未命中当前词典，尝试其他 UI 词典作为兜底（减少重复翻译）
-			// 智能展示原文不涉及词典兜底，原逻辑保留当前词典命中
-			if (this.settings.smartOriginal) {
-				// 不做额外跨词典查找
-			} else {
-				for (const scope of this.settings.uiScopes || []) {
-					if (scope === this.scopeId) continue;
-					const alt = await this.dict.get(scope, dictKey);
-					if (alt?.translated) {
-						this.cache.set(text, alt.translated);
-						return alt.translated;
-					}
+			for (const scope of this.settings.uiScopes || []) {
+				if (scope === this.scopeId) continue;
+				const alt = await this.dict.get(scope, dictKey);
+				if (alt?.translated) {
+					this.cache.set(text, alt.translated);
+					return alt.translated;
 				}
 			}
 		}
+
+		if (reuseOnly) return "";
 
 		const translatedText =
 			apiType === "openai"
 				? await this.translateWithOpenAI(text)
 				: await this.translateWithSimple(text);
 
-		if (!translatedText) {
-			throw new Error("翻译结果为空，请检查接口响应格式或提示词。");
-		}
+		if (!translatedText) return "";
 
 		this.cache.set(text, translatedText);
 		if (dictKey && this.dict) {
