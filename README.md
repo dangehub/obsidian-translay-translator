@@ -1,5 +1,16 @@
 # KISS Translator (Obsidian)
 
+---
+
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/dangehub/kiss-translator-obsidian/total)
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![GPL-3.0 License][license-shield]][license-url]
+
+---
+
 用于翻译 Obsidian 界面元素的插件，受Kiss Translator启发。
 
 ## 功能概览
@@ -75,3 +86,16 @@
 - 新增全局悬浮球，点击翻译/清除当前界面；支持拖拽位置。
 - 设置页文案改为中文，新增“不翻译的选择器”配置并默认屏蔽设置侧边栏。
 - 译文样式改为紧凑行内块，减少布局影响；README 更新使用与构建说明。
+
+
+<!-- links -->
+[your-project-path]:dangehub/kiss-translator-obsidian
+[contributors-shield]: https://img.shields.io/github/contributors/dangehub/kiss-translator-obsidian.svg?style=flat-square
+[contributors-url]: https://github.com/dangehub/kiss-translator-obsidian/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/dangehub/kiss-translator-obsidian.svg?style=flat-square
+[forks-url]: https://github.com/dangehub/kiss-translator-obsidian/network/members
+[stars-shield]: https://img.shields.io/github/stars/dangehub/kiss-translator-obsidian.svg?style=flat-square
+[stars-url]: https://github.com/dangehub/kiss-translator-obsidian/stargazers
+[issues-shield]: https://img.shields.io/github/issues/dangehub/kiss-translator-obsidian.svg?style=flat-square
+[issues-url]: https://img.shields.io/github/issues/dangehub/kiss-translator-obsidian.svg
+[license-shield]: https://img.shields.io/github/license/dangehub/kiss-translator-obsidian.svg?style=flat-square
