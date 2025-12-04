@@ -67,6 +67,10 @@ If your plugin does not need CSS, delete this file.
 	background: #27ae60 !important; /* active green */
 }
 
+.kiss-fab-empty {
+	background: #f1c40f !important; /* on but no dict hits */
+}
+
 .kiss-fab-idle {
 	background: #e74c3c !important;
 }
@@ -118,6 +122,16 @@ If your plugin does not need CSS, delete this file.
 .kiss-scope-menu-title {
 	font-weight: bold;
 	margin-bottom: 6px;
+}
+
+.kiss-scope-actions {
+	display: flex;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.kiss-scope-actions button {
+	width: 100%;
 }
 
 .kiss-scope-switches {

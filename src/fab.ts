@@ -8,6 +8,7 @@ export class FloatingFab {
 	private dragging = false;
 	private offsetX = 0;
 	private offsetY = 0;
+	private state: "off" | "empty" | "active" = "off";
 
 	constructor(plugin: KissTranslatorPlugin) {
 		this.plugin = plugin;
@@ -19,7 +20,7 @@ export class FloatingFab {
 		const fab = document.createElement("div");
 		fab.id = FAB_ID;
 		fab.textContent = "译";
-		fab.title = "点击翻译当前界面，拖动可移动";
+		fab.title = "双击开关词典翻译，右键打开菜单，拖动可移动";
 		fab.className = "kiss-fab";
 
 		const startDrag = (evt: MouseEvent | TouchEvent) => {
@@ -58,7 +59,7 @@ export class FloatingFab {
 			if (clickTimeout) {
 				clearTimeout(clickTimeout);
 				clickTimeout = null;
-				this.plugin.translateUIWithFab();
+				this.plugin.toggleUiDictionaryTranslations();
 			} else {
 				clickTimeout = setTimeout(() => {
 					clickTimeout = null;
@@ -75,10 +76,17 @@ export class FloatingFab {
 		this.el = fab;
 	}
 
-	setActive(active: boolean) {
+	setState(state: "off" | "empty" | "active") {
 		if (!this.el) return;
-		this.el.classList.toggle("kiss-fab-active", active);
-		this.el.classList.toggle("kiss-fab-idle", !active);
+		this.state = state;
+		this.el.classList.remove("kiss-fab-active", "kiss-fab-idle", "kiss-fab-empty");
+		if (state === "active") {
+			this.el.classList.add("kiss-fab-active");
+		} else if (state === "empty") {
+			this.el.classList.add("kiss-fab-empty");
+		} else {
+			this.el.classList.add("kiss-fab-idle");
+		}
 	}
 
 	unmount() {
