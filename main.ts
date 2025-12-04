@@ -5,9 +5,12 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	Modal,
 } from "obsidian";
 import { TranslationSession } from "./src/translator";
 import { FloatingFab } from "./src/fab";
+import { DictionaryStore } from "./src/dictionary";
+import * as path from "path";
 
 export interface KissTranslatorSettings {
 	apiType: "simple" | "openai";
@@ -19,6 +22,9 @@ export interface KissTranslatorSettings {
 	systemPrompt: string;
 	userPrompt: string;
 	skipSelectors: string[];
+	uiScope: string;
+	uiScopes: string[];
+	recentUiScopes: string[];
 	hideOriginal: boolean;
 	autoTranslateOnOpen: boolean;
 }
@@ -37,6 +43,9 @@ const DEFAULT_SETTINGS: KissTranslatorSettings = {
 	skipSelectors: [
 		'body > div.modal-container.mod-dim > div.modal.mod-settings.mod-sidebar-layout > div.modal-content.vertical-tabs-container > div.vertical-tab-header',
 	],
+	uiScope: "ui-global",
+	uiScopes: ["ui-global"],
+	recentUiScopes: ["ui-global"],
 	hideOriginal: false,
 	autoTranslateOnOpen: false,
 };
@@ -46,9 +55,14 @@ export default class KissTranslatorPlugin extends Plugin {
 	session: TranslationSession | null = null;
 	uiSession: TranslationSession | null = null;
 	private fab: FloatingFab | null = null;
+	private dictStore: DictionaryStore | null = null;
+	private scopeMenuEl: HTMLElement | null = null;
+	private scopeMenuHandler: ((ev: MouseEvent) => void) | null = null;
 
 	async onload() {
 		await this.loadSettings();
+		this.dictStore = new DictionaryStore(this.getTranslationDir());
+		await this.dictStore.ensureReady();
 
 		this.addCommand({
 			id: "kiss-translate-current",
@@ -66,6 +80,12 @@ export default class KissTranslatorPlugin extends Plugin {
 			id: "kiss-toggle-original",
 			name: "Toggle show original text",
 			callback: () => this.toggleOriginal(),
+		});
+
+		this.addCommand({
+			id: "kiss-set-ui-scope",
+			name: "Set UI dictionary scope",
+			callback: () => this.promptUiScope(),
 		});
 
 		if (this.settings.autoTranslateOnOpen) {
@@ -88,6 +108,8 @@ export default class KissTranslatorPlugin extends Plugin {
 		this.uiSession?.clear();
 		this.uiSession = null;
 		this.fab?.unmount();
+		this.dictStore?.flush().catch((err) => console.error(err));
+		this.closeScopeMenu();
 	}
 
 	private getActiveMarkdownView(): MarkdownView | null {
@@ -96,7 +118,10 @@ export default class KissTranslatorPlugin extends Plugin {
 
 	private ensureSession(view: MarkdownView) {
 		if (!this.session || this.session.view !== view) {
-			this.session = new TranslationSession(view, this.settings);
+			this.session = new TranslationSession(view, this.settings, {
+				dictionary: this.dictStore || undefined,
+				scopeId: view.file?.path || "note-unknown",
+			});
 		} else {
 			this.session.updateSettings(this.settings);
 		}
@@ -128,7 +153,10 @@ export default class KissTranslatorPlugin extends Plugin {
 		}
 
 		if (!this.uiSession) {
-			this.uiSession = new TranslationSession(null, this.settings);
+			this.uiSession = new TranslationSession(null, this.settings, {
+				dictionary: this.dictStore || undefined,
+				scopeId: this.settings.uiScope || "ui-global",
+			});
 		} else {
 			this.uiSession.updateSettings(this.settings);
 		}
@@ -166,6 +194,55 @@ export default class KissTranslatorPlugin extends Plugin {
 		);
 	}
 
+	private promptUiScope() {
+		const modal = new UIScopeModal(this.app, this.settings.uiScope, async (val) => {
+			await this.setUiScope(val);
+		});
+		modal.open();
+	}
+
+	async setUiScope(val: string) {
+		const scope = val.trim() || "ui-global";
+		this.settings.uiScope = scope;
+		const list = [scope, ...this.settings.recentUiScopes];
+		this.settings.recentUiScopes = Array.from(new Set(list)).slice(0, 5);
+		if (!this.settings.uiScopes.includes(scope)) {
+			this.settings.uiScopes.push(scope);
+		}
+		await this.saveSettings();
+		this.uiSession = null; // 重置以清空缓存
+	}
+
+	private async renameScope(oldName: string, newName: string) {
+		if (!newName) return;
+		await this.dictStore?.renameScope(oldName, newName);
+		this.settings.uiScopes = this.settings.uiScopes.map((s) =>
+			s === oldName ? newName : s
+		);
+		this.settings.recentUiScopes = this.settings.recentUiScopes.map((s) =>
+			s === oldName ? newName : s
+		);
+		if (this.settings.uiScope === oldName) {
+			this.settings.uiScope = newName;
+		}
+		await this.saveSettings();
+		this.uiSession = null;
+	}
+
+	private async deleteScope(name: string) {
+		if (name === "ui-global") return; // 保留默认
+		await this.dictStore?.removeScope(name);
+		this.settings.uiScopes = this.settings.uiScopes.filter((s) => s !== name);
+		this.settings.recentUiScopes = this.settings.recentUiScopes.filter(
+			(s) => s !== name
+		);
+		if (this.settings.uiScope === name) {
+			this.settings.uiScope = "ui-global";
+		}
+		await this.saveSettings();
+		this.uiSession = null;
+	}
+
 	async loadSettings() {
 		this.settings = Object.assign(
 			{},
@@ -176,6 +253,157 @@ export default class KissTranslatorPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	private getTranslationDir() {
+		const adapter = this.app.vault.adapter as any;
+		const basePath: string | undefined = adapter?.basePath;
+		if (basePath) {
+			return path.join(
+				basePath,
+				".obsidian",
+				"plugins",
+				this.manifest.id,
+				"translation"
+			);
+		}
+		return path.join(process.cwd(), "translation");
+	}
+
+	openScopeMenu(x: number, y: number) {
+		this.closeScopeMenu();
+		const menu = document.createElement("div");
+		menu.className = "kiss-scope-menu";
+		menu.style.left = `${x}px`;
+		menu.style.top = `${y}px`;
+
+		const title = document.createElement("div");
+		title.textContent = "选择 UI 词典";
+		title.className = "kiss-scope-menu-title";
+		menu.appendChild(title);
+
+		const recentWrapper = document.createElement("div");
+		recentWrapper.className = "kiss-scope-recent";
+		recentWrapper.textContent = "最近";
+		menu.appendChild(recentWrapper);
+
+		const recentList = document.createElement("div");
+		recentList.className = "kiss-scope-menu-list";
+		(this.settings.recentUiScopes || []).slice(0, 3).forEach((scope) => {
+			const item = document.createElement("div");
+			item.textContent = scope;
+			item.className = "kiss-scope-menu-item";
+			item.onclick = async () => {
+				await this.setUiScope(scope);
+				this.closeScopeMenu();
+			};
+			recentList.appendChild(item);
+		});
+		menu.appendChild(recentList);
+
+		const listWrap = document.createElement("div");
+		listWrap.className = "kiss-scope-list-wrap";
+
+		const addRow = document.createElement("div");
+		addRow.className = "kiss-scope-add-row";
+		const addInput = document.createElement("input");
+		addInput.placeholder = "新增词典";
+		const addBtn = document.createElement("button");
+		addBtn.textContent = "添加";
+		addInput.onclick = (e) => e.stopPropagation();
+		addBtn.onclick = async (e) => {
+			e.stopPropagation();
+			await this.setUiScope(addInput.value);
+			this.closeScopeMenu();
+		};
+		addRow.appendChild(addInput);
+		addRow.appendChild(addBtn);
+		listWrap.appendChild(addRow);
+
+		const fullList = document.createElement("div");
+		fullList.className = "kiss-scope-full-list";
+		(this.settings.uiScopes || []).forEach((scope) => {
+			const row = document.createElement("div");
+			row.className = "kiss-scope-row";
+
+			const name = document.createElement("span");
+			name.textContent = scope === this.settings.uiScope ? `* ${scope}` : scope;
+			name.className = "kiss-scope-name";
+			name.onclick = async () => {
+				await this.setUiScope(scope);
+				this.closeScopeMenu();
+			};
+
+			const renameBtn = document.createElement("button");
+			renameBtn.textContent = "改名";
+			renameBtn.onclick = async (e) => {
+				e.stopPropagation();
+				row.replaceChildren();
+				const input = document.createElement("input");
+				input.value = scope;
+				const ok = document.createElement("button");
+				ok.textContent = "保存";
+				const cancel = document.createElement("button");
+				cancel.textContent = "取消";
+				ok.onclick = async (ev) => {
+					ev.stopPropagation();
+					const val = input.value.trim();
+					if (!val) return;
+					await this.renameScope(scope, val);
+					this.closeScopeMenu();
+				};
+				cancel.onclick = (ev) => {
+					ev.stopPropagation();
+					this.closeScopeMenu();
+					this.openScopeMenu(x, y);
+				};
+				row.appendChild(input);
+				row.appendChild(ok);
+				row.appendChild(cancel);
+				input.focus();
+			};
+
+			const delBtn = document.createElement("button");
+			delBtn.textContent = "删除";
+			delBtn.onclick = async (e) => {
+				e.stopPropagation();
+				await this.deleteScope(scope);
+				this.closeScopeMenu();
+			};
+
+			row.appendChild(name);
+			row.appendChild(renameBtn);
+			row.appendChild(delBtn);
+			fullList.appendChild(row);
+		});
+
+		listWrap.appendChild(fullList);
+		menu.appendChild(listWrap);
+
+		document.body.appendChild(menu);
+		this.scopeMenuEl = menu;
+
+		this.scopeMenuHandler = (evt: MouseEvent) => {
+			if (!menu.contains(evt.target as Node)) {
+				this.closeScopeMenu();
+			}
+		};
+		setTimeout(() => {
+			if (this.scopeMenuHandler) {
+				document.addEventListener("click", this.scopeMenuHandler);
+			}
+		}, 0);
+	}
+
+	closeScopeMenu() {
+		if (this.scopeMenuEl) {
+			this.scopeMenuEl.remove();
+			this.scopeMenuEl = null;
+		}
+		if (this.scopeMenuHandler) {
+			document.removeEventListener("click", this.scopeMenuHandler);
+			this.scopeMenuHandler = null;
+		}
 	}
 }
 
@@ -321,6 +549,18 @@ class KissSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("UI 词典名")
+			.setDesc("悬浮球翻译 UI 时使用的词典作用域，例如 ui-global 或具体插件名。")
+			.addText((text) =>
+				text
+					.setPlaceholder("ui-global")
+					.setValue(this.plugin.settings.uiScope)
+					.onChange(async (value) => {
+						await this.plugin.setUiScope(value);
+					})
+			);
+
+		new Setting(containerEl)
 			.setName("System prompt (OpenAI)")
 			.setDesc("可选。可使用占位符 {from} {to}。")
 			.addTextArea((text) =>
@@ -349,5 +589,31 @@ class KissSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+	}
+}
+
+class UIScopeModal extends Modal {
+	private value: string;
+	private onSubmit: (val: string) => void;
+
+	constructor(app: App, current: string, onSubmit: (val: string) => void) {
+		super(app);
+		this.value = current || "ui-global";
+		this.onSubmit = onSubmit;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.createEl("h3", { text: "设置当前 UI 词典名" });
+		const input = contentEl.createEl("input", { value: this.value });
+		input.style.width = "100%";
+		input.focus();
+
+		const btn = contentEl.createEl("button", { text: "确定" });
+		btn.onclick = () => {
+			this.onSubmit(input.value.trim());
+			this.close();
+		};
 	}
 }

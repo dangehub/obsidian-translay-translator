@@ -1,22 +1,36 @@
 import { MarkdownView } from "obsidian";
 import type { KissTranslatorSettings } from "../main";
+import { DictionaryStore } from "./dictionary";
 
 const TRANSLATION_CLASS = "kiss-translated-block";
 const HIDE_ORIGINAL_CLASS = "kiss-hide-original";
+const EDIT_BTN_CLASS = "kiss-edit-btn";
+const EDIT_WRAPPER_CLASS = "kiss-edit-wrapper";
 
 export class TranslationSession {
 	view: MarkdownView | null;
 	private settings: KissTranslatorSettings;
 	private translated = new Map<HTMLElement, HTMLElement>();
 	private cache = new Map<string, string>();
+	private dict?: DictionaryStore;
+	private scopeId: string;
+	private promptSig: string;
 
-	constructor(view: MarkdownView | null, settings: KissTranslatorSettings) {
+	constructor(
+		view: MarkdownView | null,
+		settings: KissTranslatorSettings,
+		options?: { dictionary?: DictionaryStore; scopeId?: string }
+	) {
 		this.view = view;
 		this.settings = { ...settings };
+		this.dict = options?.dictionary;
+		this.scopeId = options?.scopeId || (view?.file?.path ?? "ui-global");
+		this.promptSig = (settings.systemPrompt || "") + (settings.userPrompt || "");
 	}
 
 	updateSettings(settings: KissTranslatorSettings) {
 		this.settings = { ...settings };
+		this.promptSig = (settings.systemPrompt || "") + (settings.userPrompt || "");
 	}
 
 	async translate(rootOverride?: HTMLElement) {
@@ -36,9 +50,9 @@ export class TranslationSession {
 	}
 
 	clear() {
+		this.restoreOriginalVisibility();
 		this.translated.forEach((el) => el.remove());
 		this.translated.clear();
-		this.restoreOriginalVisibility();
 	}
 
 	applyOriginalVisibility() {
@@ -75,8 +89,7 @@ export class TranslationSession {
 				);
 			if (root) return root;
 		}
-
-		// 兜底：直接使用应用根节点（用于设置/插件 UI）
+		// 兜底：使用整个文档
 		return document.body;
 	}
 
@@ -89,12 +102,10 @@ export class TranslationSession {
 				if (el.classList.contains(TRANSLATION_CLASS)) return false;
 				if (el.closest(`.${TRANSLATION_CLASS}`)) return false;
 				if (el.querySelector("input, textarea, select")) return false;
-				// 避免处理包含多个子节点的大块容器，优先叶子节点
 				if (el.children.length > 0) return false;
 				const text = this.normalizeText(el.innerText || "");
 				if (!text) return false;
 				if (text.length < 2) return false;
-				// 避免长段落打乱布局
 				if (text.length > 160) return false;
 				return true;
 			}
@@ -108,7 +119,7 @@ export class TranslationSession {
 			try {
 				if (el.closest(sel)) return true;
 			} catch (_e) {
-				// ignore invalid selector
+				// 忽略非法选择器
 			}
 		}
 		return false;
@@ -127,10 +138,115 @@ export class TranslationSession {
 
 		const translation = document.createElement("div");
 		translation.className = TRANSLATION_CLASS;
-		translation.textContent = translated;
+		const inner = document.createElement("span");
+		inner.textContent = translated;
+		inner.setAttribute("data-source", text);
+		translation.appendChild(inner);
+
+		const dictKey = this.dict?.genKey({
+			text,
+			fromLang: this.settings.fromLang,
+			toLang: this.settings.toLang,
+			apiType: this.settings.apiType,
+			model: this.settings.model,
+			promptSig: this.promptSig,
+		});
+		if (dictKey && this.dict) {
+			this.attachEditControls(translation, inner, dictKey, text);
+		}
 
 		block.insertAdjacentElement("afterend", translation);
 		this.translated.set(block, translation);
+	}
+
+	private attachEditControls(
+		wrapper: HTMLElement,
+		inner: HTMLElement,
+		dictKey: string,
+		source: string
+	) {
+		if (!this.dict) return;
+		const btn = document.createElement("button");
+		btn.className = EDIT_BTN_CLASS;
+		btn.textContent = "Edit";
+		btn.title = "编辑译文";
+		btn.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			this.openEditor(wrapper, inner, dictKey, source);
+		});
+		wrapper.appendChild(btn);
+	}
+
+	private openEditor(
+		wrapper: HTMLElement,
+		inner: HTMLElement,
+		dictKey: string,
+		source: string
+	) {
+		const current = inner.textContent || "";
+		const host = document.createElement("div");
+		host.className = EDIT_WRAPPER_CLASS;
+
+		const textarea = document.createElement("textarea");
+		textarea.value = current;
+
+		const saveBtn = document.createElement("button");
+		saveBtn.textContent = "保存";
+
+		const cancelBtn = document.createElement("button");
+		cancelBtn.textContent = "取消";
+
+		const resetBtn = document.createElement("button");
+		resetBtn.textContent = "重置";
+
+		host.appendChild(textarea);
+		host.appendChild(saveBtn);
+		host.appendChild(cancelBtn);
+		host.appendChild(resetBtn);
+
+		const cleanup = () => host.remove();
+		cancelBtn.onclick = cleanup;
+
+		resetBtn.onclick = async () => {
+			cleanup();
+			await this.dict?.remove(this.scopeId, dictKey);
+			this.cache.delete(source);
+			inner.textContent = "[...]";
+			try {
+				const fresh = await this.translateWithFallback(source);
+				if (fresh) inner.textContent = fresh;
+			} catch (err) {
+				console.error(err);
+			}
+		};
+
+		saveBtn.onclick = async () => {
+			const val = textarea.value.trim();
+			if (!val) return;
+			inner.textContent = val;
+			this.cache.set(source, val);
+			await this.dict?.set(this.scopeId, {
+				key: dictKey,
+				source,
+				translated: val,
+				updatedAt: Date.now(),
+				edited: true,
+			});
+			cleanup();
+		};
+
+		wrapper.appendChild(host);
+		textarea.focus();
+	}
+
+	private async translateWithFallback(source: string): Promise<string | null> {
+		try {
+			const text = await this.translateText(source);
+			return text;
+		} catch (err) {
+			console.error(err);
+		}
+		return null;
 	}
 
 	private async translateText(text: string): Promise<string> {
@@ -138,6 +254,23 @@ export class TranslationSession {
 		if (cached) return cached;
 
 		const { apiType } = this.settings;
+
+		const dictKey = this.dict?.genKey({
+			text,
+			fromLang: this.settings.fromLang,
+			toLang: this.settings.toLang,
+			apiType,
+			model: this.settings.model,
+			promptSig: this.promptSig,
+		});
+		if (dictKey && this.dict) {
+			const hit = await this.dict.get(this.scopeId, dictKey);
+			if (hit?.translated) {
+				this.cache.set(text, hit.translated);
+				return hit.translated;
+			}
+		}
+
 		const translatedText =
 			apiType === "openai"
 				? await this.translateWithOpenAI(text)
@@ -148,6 +281,14 @@ export class TranslationSession {
 		}
 
 		this.cache.set(text, translatedText);
+		if (dictKey && this.dict) {
+			await this.dict.set(this.scopeId, {
+				key: dictKey,
+				source: text,
+				translated: translatedText,
+				updatedAt: Date.now(),
+			});
+		}
 		return translatedText;
 	}
 

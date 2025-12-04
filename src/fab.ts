@@ -57,6 +57,11 @@ export class FloatingFab {
 			this.plugin.translateUIWithFab();
 		});
 
+		fab.addEventListener("contextmenu", (evt) => {
+			evt.preventDefault();
+			this.plugin.openScopeMenu(evt.clientX, evt.clientY);
+		});
+
 		document.body.appendChild(fab);
 		this.el = fab;
 	}

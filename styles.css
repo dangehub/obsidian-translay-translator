@@ -52,3 +52,119 @@ If your plugin does not need CSS, delete this file.
 	opacity: 1;
 	box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
 }
+
+.kiss-edit-btn {
+	margin-left: 6px;
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.kiss-edit-btn:hover {
+	color: var(--interactive-accent);
+}
+
+.kiss-edit-wrapper {
+	margin-top: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	background: var(--background-secondary);
+	padding: 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+}
+
+.kiss-edit-wrapper textarea {
+	width: 100%;
+	min-height: 60px;
+}
+
+.kiss-edit-wrapper button {
+	align-self: flex-start;
+}
+
+.kiss-scope-menu {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 8px;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+	z-index: 100000;
+	min-width: 180px;
+}
+
+.kiss-scope-menu-title {
+	font-weight: bold;
+	margin-bottom: 6px;
+}
+
+.kiss-scope-recent {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.kiss-scope-menu-list {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-bottom: 6px;
+}
+
+.kiss-scope-menu-item {
+	padding: 4px 6px;
+	border-radius: 4px;
+	cursor: pointer;
+	background: var(--background-secondary);
+}
+
+.kiss-scope-menu-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.kiss-scope-list-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: 260px;
+	overflow: hidden;
+}
+
+.kiss-scope-add-row {
+	display: flex;
+	gap: 6px;
+}
+
+.kiss-scope-add-row input {
+	flex: 1;
+	padding: 4px;
+}
+
+.kiss-scope-full-list {
+	max-height: 200px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.kiss-scope-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background: var(--background-secondary);
+	padding: 4px 6px;
+	border-radius: 4px;
+}
+
+.kiss-scope-name {
+	flex: 1;
+	cursor: pointer;
+}
+
+.kiss-scope-row button {
+	font-size: 12px;
+}
