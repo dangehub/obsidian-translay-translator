@@ -57,7 +57,17 @@ export class TranslationSession {
 
 	clear() {
 		this.restoreOriginalVisibility();
-		this.translated.forEach((el) => el.remove());
+		this.translated.forEach((el, original) => {
+			if (el === original) {
+				const oriText = el.getAttribute("data-original");
+				if (oriText) {
+					el.textContent = oriText;
+				}
+				el.classList.remove(TRANSLATION_CLASS);
+			} else {
+				el.remove();
+			}
+		});
 		this.translated.clear();
 	}
 
@@ -70,14 +80,16 @@ export class TranslationSession {
 	}
 
 	private hideOriginal() {
-		this.translated.forEach((_translation, original) => {
+		this.translated.forEach((translation, original) => {
+			if (translation === original) return; // 交互元素直接改文本，不隐藏
 			original.classList.add(HIDE_ORIGINAL_CLASS);
 			(original as HTMLElement).style.display = "none";
 		});
 	}
 
 	private restoreOriginalVisibility() {
-		this.translated.forEach((_translation, original) => {
+		this.translated.forEach((translation, original) => {
+			if (translation === original) return;
 			original.classList.remove(HIDE_ORIGINAL_CLASS);
 			(original as HTMLElement).style.display = "";
 		});
@@ -145,11 +157,16 @@ export class TranslationSession {
 		const translated = await this.translateText(text, dictionaryOnly);
 		if (!translated) return;
 
+		const interactive = this.isInteractive(block);
 		// 基于原节点浅拷贝，尽可能继承标签与样式，避免丢失原有字体/字号/加粗等
-		const translation = block.cloneNode(false) as HTMLElement;
+		const translation = interactive
+			? block
+			: (block.cloneNode(false) as HTMLElement);
 		translation.classList.add(TRANSLATION_CLASS);
 		translation.removeAttribute("id");
-		this.copyInlineStyles(block, translation);
+		if (!interactive) {
+			this.copyInlineStyles(block, translation);
+		}
 		translation.textContent = translated;
 		translation.setAttribute("data-source", text);
 		translation.setAttribute("data-translated", translated);
@@ -164,11 +181,13 @@ export class TranslationSession {
 			model: this.settings.model,
 			promptSig: this.promptSig,
 		});
-		if (dictKey && this.dict) {
+		if (dictKey && this.dict && !interactive) {
 			this.attachEditControls(translation, translation, dictKey, text);
 		}
 
-		block.insertAdjacentElement("afterend", translation);
+		if (!interactive) {
+			block.insertAdjacentElement("afterend", translation);
+		}
 		this.translated.set(block, translation);
 	}
 
@@ -516,5 +535,32 @@ export class TranslationSession {
 				to.classList.add(cls);
 			}
 		});
+	}
+
+	private isInteractive(el: HTMLElement) {
+		const tag = el.tagName.toLowerCase();
+		if (
+			tag === "button" ||
+			tag === "select" ||
+			tag === "textarea" ||
+			tag === "option" ||
+			tag === "input" ||
+			(tag === "a" && (el as HTMLAnchorElement).href)
+		) {
+			return true;
+		}
+		const role = el.getAttribute("role");
+		if (role && /^(button|link|checkbox|radio|switch|tab|menuitem)$/i.test(role)) {
+			return true;
+		}
+		const tabindex = el.getAttribute("tabindex");
+		if (tabindex !== null && Number(tabindex) >= 0) {
+			return true;
+		}
+		if (el.isContentEditable) return true;
+		if ((el as any).onclick) return true;
+		const pe = getComputedStyle(el).pointerEvents;
+		if (pe === "none") return false;
+		return false;
 	}
 }

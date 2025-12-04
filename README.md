@@ -30,8 +30,7 @@
 - 手动安装：将 `main.js`、`manifest.json`、`styles.css` 复制到 `<Vault>/.obsidian/plugins/kiss-translator-obsidian/`。
 
 ## 已知限制 / 待规划
-- UI 翻译的“归属插件”目前默认存放到全局词典，可通过“跳过选择器”自定义范围，暂未自动识别插件来源。
-- 词典落盘在桌面端路径 `<Vault>/.obsidian/plugins/kiss-translator-obsidian/translation/`；移动端或无写权限环境暂未验证。
+- 暂不支持移动端
 
 ## Changelog
 
