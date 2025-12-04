@@ -34,7 +34,7 @@ If your plugin does not need CSS, delete this file.
 	right: 16px;
 	bottom: 120px;
 	border-radius: 50%;
-	background: var(--interactive-accent);
+	background: #e74c3c; /* idle red */
 	color: var(--text-on-accent);
 	display: flex;
 	align-items: center;
@@ -51,6 +51,14 @@ If your plugin does not need CSS, delete this file.
 #kiss-obsidian-fab:hover {
 	opacity: 1;
 	box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+.kiss-fab-active {
+	background: #27ae60 !important; /* active green */
+}
+
+.kiss-fab-idle {
+	background: #e74c3c !important;
 }
 
 .kiss-edit-btn {

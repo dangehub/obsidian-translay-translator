@@ -102,6 +102,7 @@ export default class KissTranslatorPlugin extends Plugin {
 	private dictStore: DictionaryStore | null = null;
 	private scopeMenuEl: HTMLElement | null = null;
 	private scopeMenuHandler: ((ev: MouseEvent) => void) | null = null;
+	private uiBusy = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -185,6 +186,10 @@ export default class KissTranslatorPlugin extends Plugin {
 	}
 
 	translateUIWithFab() {
+		if (this.uiBusy) {
+			new Notice("KISS Translator: 正在翻译，请稍候…");
+			return;
+		}
 		const target =
 			document.querySelector<HTMLElement>(".modal.mod-settings") ||
 			document.querySelector<HTMLElement>(".modal-container .mod-settings") ||
@@ -208,13 +213,24 @@ export default class KissTranslatorPlugin extends Plugin {
 		if (this.uiSession.hasTranslations()) {
 			this.uiSession.clear();
 			new Notice("KISS Translator: 已清除翻译。");
+			this.fab?.setActive(false);
 			return;
 		}
 
-		this.uiSession.translate(target).catch((err) => {
-			console.error(err);
-			new Notice(`KISS Translator: ${err.message}`);
-		});
+		this.uiBusy = true;
+		this.uiSession
+			.translate(target)
+			.then(() => {
+				this.fab?.setActive(true);
+			})
+			.catch((err) => {
+				console.error(err);
+				this.fab?.setActive(false);
+				new Notice(`KISS Translator: ${err.message}`);
+			})
+			.finally(() => {
+				this.uiBusy = false;
+			});
 	}
 
 	private clearActive() {

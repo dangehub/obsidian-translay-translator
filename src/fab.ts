@@ -66,6 +66,12 @@ export class FloatingFab {
 		this.el = fab;
 	}
 
+	setActive(active: boolean) {
+		if (!this.el) return;
+		this.el.classList.toggle("kiss-fab-active", active);
+		this.el.classList.toggle("kiss-fab-idle", !active);
+	}
+
 	unmount() {
 		this.el?.remove();
 		this.el = null;

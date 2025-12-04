@@ -269,6 +269,15 @@ export class TranslationSession {
 				this.cache.set(text, hit.translated);
 				return hit.translated;
 			}
+			// 未命中当前词典，尝试其他 UI 词典作为兜底（减少重复翻译）
+			for (const scope of this.settings.uiScopes || []) {
+				if (scope === this.scopeId) continue;
+				const alt = await this.dict.get(scope, dictKey);
+				if (alt?.translated) {
+					this.cache.set(text, alt.translated);
+					return alt.translated;
+				}
+			}
 		}
 
 		const translatedText =
