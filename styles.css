@@ -168,3 +168,34 @@ If your plugin does not need CSS, delete this file.
 .kiss-scope-row button {
 	font-size: 12px;
 }
+
+.skip-presets-container {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.skip-preset-row {
+	padding: 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-secondary);
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.skip-preset-label {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.skip-preset-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.skip-preset-actions button {
+	padding: 4px 8px;
+}

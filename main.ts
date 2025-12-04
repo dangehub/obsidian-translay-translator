@@ -22,11 +22,18 @@ export interface KissTranslatorSettings {
 	systemPrompt: string;
 	userPrompt: string;
 	skipSelectors: string[];
+	skipPresets?: SkipPreset[];
 	uiScope: string;
 	uiScopes: string[];
 	recentUiScopes: string[];
 	hideOriginal: boolean;
 	autoTranslateOnOpen: boolean;
+}
+
+interface SkipPreset {
+	name: string;
+	selectors: string[];
+	enabled?: boolean;
 }
 
 const DEFAULT_SETTINGS: KissTranslatorSettings = {
@@ -42,6 +49,43 @@ const DEFAULT_SETTINGS: KissTranslatorSettings = {
 		"Translate the following text from {from} to {to}. Reply with translation only.\n\n{text}",
 	skipSelectors: [
 		'body > div.modal-container.mod-dim > div.modal.mod-settings.mod-sidebar-layout > div.modal-content.vertical-tabs-container > div.vertical-tab-header',
+	],
+	skipPresets: [
+		{
+			name: "设置侧边栏",
+			selectors: [
+				"body > div.modal-container.mod-dim > div.modal.mod-settings.mod-sidebar-layout > div.modal-content.vertical-tabs-container > div.vertical-tab-header",
+			],
+			enabled: true,
+		},
+		{
+			name: "编辑器",
+			selectors: [
+				"body > div.app-container > div.horizontal-main-container > div > div.workspace-split.mod-vertical.mod-root > div > div.workspace-tab-container > div > div > div.view-content > div.markdown-source-view.cm-s-obsidian.mod-cm6.node-insert-event.is-readable-line-width.is-live-preview.is-folding.show-properties > div > div.cm-scroller > div.cm-sizer > div.cm-contentContainer > div",
+			],
+			enabled: true,
+		},
+		{
+			name: "标签栏",
+			selectors: [
+				"body > div.app-container > div.horizontal-main-container > div > div.workspace-split.mod-vertical.mod-root > div > div.workspace-tab-header-container",
+			],
+			enabled: true,
+		},
+		{
+			name: "笔记标题",
+			selectors: [
+				"body > div.app-container > div.horizontal-main-container > div > div.workspace-split.mod-vertical.mod-root > div > div.workspace-tab-container > div.workspace-leaf.mod-active > div > div.view-content > div.markdown-source-view.cm-s-obsidian.mod-cm6.node-insert-event.is-readable-line-width.is-live-preview.is-folding.show-properties > div > div.cm-scroller > div.cm-sizer > div.inline-title",
+			],
+			enabled: true,
+		},
+		{
+			name: "标题上方地址栏",
+			selectors: [
+				"body > div.app-container > div.horizontal-main-container > div > div.workspace-split.mod-vertical.mod-root > div > div.workspace-tab-container > div.workspace-leaf.mod-active > div > div.view-header > div.view-header-title-container.mod-at-start.mod-fade.mod-at-end",
+			],
+			enabled: true,
+		},
 	],
 	uiScope: "ui-global",
 	uiScopes: ["ui-global"],
@@ -249,6 +293,22 @@ export default class KissTranslatorPlugin extends Plugin {
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
+		// 迁移：旧的 skipSelectors -> 单个预设
+		if (!this.settings.skipPresets || this.settings.skipPresets.length === 0) {
+			this.settings.skipPresets = [
+				{
+					name: "custom",
+					selectors: [...(this.settings.skipSelectors || [])],
+					enabled: true,
+				},
+			];
+		}
+		this.settings.skipPresets = this.settings.skipPresets.map((p) => ({
+			enabled: true,
+			...p,
+		}));
+		// 确保 skipSelectors 与 presets 同步
+		this.settings.skipSelectors = this.flattenSkipSelectors(this.settings.skipPresets);
 	}
 
 	async saveSettings() {
@@ -268,6 +328,19 @@ export default class KissTranslatorPlugin extends Plugin {
 			);
 		}
 		return path.join(process.cwd(), "translation");
+	}
+
+	public flattenSkipSelectors(presets: SkipPreset[]) {
+		return Array.from(
+			new Set(
+				presets
+					.filter((p) => p.enabled !== false)
+					.map((p) => p.selectors || [])
+					.flat()
+					.map((s) => s.trim())
+					.filter(Boolean)
+			)
+		);
 	}
 
 	openScopeMenu(x: number, y: number) {
@@ -527,26 +600,83 @@ class KissSettingTab extends PluginSettingTab {
 					})
 			);
 
-		new Setting(containerEl)
-			.setName("不翻译的选择器")
-			.setDesc("一行一个 CSS 选择器。匹配到的元素及其子节点不会被翻译。默认包含设置侧边栏。")
-			.addTextArea((text) =>
-				text
-					.setPlaceholder(
-						".workspace-ribbon\nbody > ... > .vertical-tab-header"
-					)
-					.setValue(this.plugin.settings.skipSelectors.join("\n"))
-					.onChange(async (value) => {
-						const list = value
-							.split(/\n|,/)
-							.map((s) => s.trim())
-							.filter(Boolean);
-						this.plugin.settings.skipSelectors = list;
-						await this.plugin.saveSettings();
-						this.plugin.session?.updateSettings(this.plugin.settings);
-						this.plugin.uiSession?.updateSettings(this.plugin.settings);
-					})
-			);
+		const presetsHeader = new Setting(containerEl)
+			.setName("不翻译的选择器预设")
+			.setDesc("为不同界面创建可重用的选择器预设，匹配的元素及其子节点不会被翻译。");
+		presetsHeader.addButton((btn) =>
+			btn.setButtonText("新增预设").onClick(async () => {
+				this.plugin.settings.skipPresets?.push({
+					name: "preset_" + (this.plugin.settings.skipPresets?.length || 0),
+					selectors: [],
+					enabled: true,
+				});
+				this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
+					this.plugin.settings.skipPresets || []
+				);
+				await this.plugin.saveSettings();
+				this.display();
+			})
+		);
+
+		const presetsContainer = containerEl.createDiv({ cls: "skip-presets-container" });
+		(this.plugin.settings.skipPresets || []).forEach((preset, index) => {
+			const row = presetsContainer.createDiv({ cls: "skip-preset-row" });
+			// 名称
+			const nameLabel = row.createEl("div", { text: "名称", cls: "skip-preset-label" });
+			const nameInput = row.createEl("input", { value: preset.name });
+			nameInput.oninput = async (e: any) => {
+				preset.name = (e.target.value || "").trim();
+				await this.plugin.saveSettings();
+			};
+
+			// 选择器
+			const selLabel = row.createEl("div", { text: "选择器（每行一个）", cls: "skip-preset-label" });
+			const selArea = row.createEl("textarea");
+			selArea.value = preset.selectors.join("\n");
+			selArea.oninput = async (e: any) => {
+				preset.selectors = (e.target.value || "")
+					.split(/\n|,/)
+					.map((s: string) => s.trim())
+					.filter(Boolean);
+				this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
+					this.plugin.settings.skipPresets || []
+				);
+				await this.plugin.saveSettings();
+				this.plugin.session?.updateSettings(this.plugin.settings);
+				this.plugin.uiSession?.updateSettings(this.plugin.settings);
+			};
+
+			// 开关 + 删除
+			const actionRow = row.createDiv({ cls: "skip-preset-actions" });
+			const toggleLabel = actionRow.createEl("span", { text: "启用" });
+			const toggle = actionRow.createEl("input", { attr: { type: "checkbox" } });
+			toggle.checked = preset.enabled !== false;
+			toggle.onchange = async (e: any) => {
+				preset.enabled = !!e.target.checked;
+				this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
+					this.plugin.settings.skipPresets || []
+				);
+				await this.plugin.saveSettings();
+			};
+
+			const delBtn = actionRow.createEl("button", { text: "删除" });
+			delBtn.onclick = async () => {
+				this.plugin.settings.skipPresets?.splice(index, 1);
+				this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
+					this.plugin.settings.skipPresets || []
+				);
+				await this.plugin.saveSettings();
+				this.display();
+			};
+
+			// 缩进
+			row.style.marginLeft = "16px";
+			nameLabel.style.display = "block";
+			selLabel.style.display = "block";
+			nameInput.style.width = "100%";
+			selArea.style.width = "100%";
+			selArea.style.minHeight = "60px";
+		});
 
 		new Setting(containerEl)
 			.setName("UI 词典名")
