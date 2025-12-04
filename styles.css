@@ -110,6 +110,21 @@ If your plugin does not need CSS, delete this file.
 	margin-bottom: 6px;
 }
 
+.kiss-scope-switches {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.kiss-switch-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--text-normal);
+}
+
 .kiss-scope-recent {
 	font-size: 12px;
 	color: var(--text-muted);

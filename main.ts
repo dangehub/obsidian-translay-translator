@@ -28,6 +28,7 @@ export interface KissTranslatorSettings {
 	recentUiScopes: string[];
 	hideOriginal: boolean;
 	autoTranslateOnOpen: boolean;
+	editMode?: boolean;
 }
 
 interface SkipPreset {
@@ -92,6 +93,7 @@ const DEFAULT_SETTINGS: KissTranslatorSettings = {
 	recentUiScopes: ["ui-global"],
 	hideOriginal: false,
 	autoTranslateOnOpen: false,
+	editMode: false,
 };
 
 export default class KissTranslatorPlugin extends Plugin {
@@ -247,11 +249,6 @@ export default class KissTranslatorPlugin extends Plugin {
 			this.session.updateSettings(this.settings);
 			this.session.applyOriginalVisibility();
 		}
-		new Notice(
-			this.settings.hideOriginal
-				? "KISS Translator: 已隐藏原文"
-				: "KISS Translator: 显示原文"
-		);
 	}
 
 	private promptUiScope() {
@@ -370,6 +367,49 @@ export default class KissTranslatorPlugin extends Plugin {
 		title.textContent = "选择 UI 词典";
 		title.className = "kiss-scope-menu-title";
 		menu.appendChild(title);
+
+		const switches = document.createElement("div");
+		switches.className = "kiss-scope-switches";
+
+		// 隐藏原文开关
+		const hideRow = document.createElement("label");
+		hideRow.className = "kiss-switch-row";
+		const hideInput = document.createElement("input");
+		hideInput.type = "checkbox";
+		hideInput.checked = this.settings.hideOriginal;
+		hideInput.onchange = async () => {
+			this.settings.hideOriginal = hideInput.checked;
+			await this.saveSettings();
+			if (this.session) {
+				this.session.updateSettings(this.settings);
+				this.session.applyOriginalVisibility();
+			}
+		};
+		const hideText = document.createElement("span");
+		hideText.textContent = "隐藏原文";
+		hideRow.appendChild(hideInput);
+		hideRow.appendChild(hideText);
+		switches.appendChild(hideRow);
+
+		// 编辑模式开关
+		const editRow = document.createElement("label");
+		editRow.className = "kiss-switch-row";
+		const editInput = document.createElement("input");
+		editInput.type = "checkbox";
+		editInput.checked = !!this.settings.editMode;
+		editInput.onchange = async () => {
+			this.settings.editMode = editInput.checked;
+			await this.saveSettings();
+			this.session?.updateSettings(this.settings);
+			this.uiSession?.updateSettings(this.settings);
+		};
+		const editText = document.createElement("span");
+		editText.textContent = "编辑模式";
+		editRow.appendChild(editInput);
+		editRow.appendChild(editText);
+		switches.appendChild(editRow);
+
+		menu.appendChild(switches);
 
 		const recentWrapper = document.createElement("div");
 		recentWrapper.className = "kiss-scope-recent";
@@ -587,20 +627,6 @@ class KissSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.toLang = value.trim() || "zh";
 						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("隐藏原文")
-			.setDesc("切换后重新翻译时将隐藏原文，仅显示译文。")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.hideOriginal)
-					.onChange(async (value) => {
-						this.plugin.settings.hideOriginal = value;
-						await this.plugin.saveSettings();
-						this.plugin.session?.updateSettings(this.plugin.settings);
-						this.plugin.session?.applyOriginalVisibility();
 					})
 			);
 

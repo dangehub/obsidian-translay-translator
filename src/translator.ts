@@ -165,7 +165,7 @@ export class TranslationSession {
 		dictKey: string,
 		source: string
 	) {
-		if (!this.dict) return;
+		if (!this.dict || !this.settings.editMode) return;
 		const btn = document.createElement("button");
 		btn.className = EDIT_BTN_CLASS;
 		btn.textContent = "Edit";
