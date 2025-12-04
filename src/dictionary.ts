@@ -1,6 +1,4 @@
-import { createHash } from "crypto";
-import * as fs from "fs/promises";
-import * as path from "path";
+import type { DataAdapter } from "obsidian";
 
 export interface DictEntry {
 	key: string;
@@ -22,20 +20,27 @@ const DEBOUNCE_MS = 500;
 
 export class DictionaryStore {
 	private baseDir: string;
+	private adapter: DataAdapter;
 	private cache = new Map<string, DictFile>(); // scope -> file data
 	private timers = new Map<string, NodeJS.Timeout>();
 
-	constructor(baseDir: string) {
-		this.baseDir = baseDir;
+	constructor(baseDir: string, adapter: DataAdapter) {
+		this.baseDir = baseDir.replace(/\\/g, "/");
+		this.adapter = adapter;
 	}
 
 	async ensureReady() {
-		await fs.mkdir(this.baseDir, { recursive: true });
+		try {
+			// @ts-ignore mkdir is available on FileSystemAdapter; noop if not
+			await (this.adapter as any).mkdir?.(this.baseDir);
+		} catch (_e) {
+			/* ignore */
+		}
 	}
 
 	private getFilePath(scope: string) {
 		const safe = scope.replace(/[^a-zA-Z0-9-_.]/g, "_");
-		return path.join(this.baseDir, `${safe}.json`);
+		return `${this.baseDir}/${safe}.json`;
 	}
 
 	genKey({
@@ -53,21 +58,22 @@ export class DictionaryStore {
 		model?: string;
 		promptSig?: string;
 	}) {
-		const hasher = createHash("sha256");
-		hasher.update(text || "");
-		hasher.update(fromLang || "");
-		hasher.update(toLang || "");
-		hasher.update(apiType || "");
-		hasher.update(model || "");
-		hasher.update(promptSig || "");
-		return hasher.digest("hex").slice(0, 24);
+		const payload = [
+			text || "",
+			fromLang || "",
+			toLang || "",
+			apiType || "",
+			model || "",
+			promptSig || "",
+		].join("|");
+		return this.hash(payload).slice(0, 24);
 	}
 
 	private async load(scope: string): Promise<DictFile> {
 		if (this.cache.has(scope)) return this.cache.get(scope)!;
 		const filePath = this.getFilePath(scope);
 		try {
-			const raw = await fs.readFile(filePath, "utf8");
+			const raw = await this.adapter.read(filePath);
 			const parsed = JSON.parse(raw) as DictFile;
 			if (parsed.version !== FILE_VERSION || !Array.isArray(parsed.entries)) {
 				throw new Error("version mismatch");
@@ -96,8 +102,11 @@ export class DictionaryStore {
 			const data = this.cache.get(s);
 			if (!data) continue;
 			const filePath = this.getFilePath(s);
-			await fs.mkdir(path.dirname(filePath), { recursive: true });
-			await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
+			try {
+				await this.adapter.write(filePath, JSON.stringify(data, null, 2));
+			} catch (err) {
+				console.error("dict write failed", err);
+			}
 		}
 	}
 
@@ -154,7 +163,12 @@ export class DictionaryStore {
 		this.cache.delete(scope);
 		const filePath = this.getFilePath(scope);
 		try {
-			await fs.unlink(filePath);
+			// @ts-ignore remove exists on FileSystemAdapter
+			if (typeof (this.adapter as any).remove === "function") {
+				await (this.adapter as any).remove(filePath);
+			} else {
+				await this.adapter.write(filePath, JSON.stringify({ version: FILE_VERSION, scope, entries: [] }));
+			}
 		} catch (_e) {
 			/* ignore */
 		}
@@ -171,5 +185,13 @@ export class DictionaryStore {
 		this.cache.delete(oldName);
 		await this.flush(newName);
 		await this.removeScope(oldName);
+	}
+
+	private hash(input: string) {
+		let h = 5381;
+		for (let i = 0; i < input.length; i++) {
+			h = (h * 33) ^ input.charCodeAt(i);
+		}
+		return (h >>> 0).toString(16).padStart(8, "0").repeat(3).slice(0, 24);
 	}
 }

@@ -1,4 +1,5 @@
 import type KissTranslatorPlugin from "../main";
+import { Platform } from "obsidian";
 
 const FAB_ID = "kiss-obsidian-fab";
 
@@ -9,6 +10,8 @@ export class FloatingFab {
 	private offsetX = 0;
 	private offsetY = 0;
 	private state: "off" | "empty" | "active" = "off";
+	private longPressTimer: NodeJS.Timeout | null = null;
+	private touchStart: { x: number; y: number } | null = null;
 
 	constructor(plugin: KissTranslatorPlugin) {
 		this.plugin = plugin;
@@ -17,24 +20,40 @@ export class FloatingFab {
 	mount() {
 		if (this.el) return;
 
+		const isMobile = Platform.isMobileApp || Platform.isMobile;
+
 		const fab = document.createElement("div");
 		fab.id = FAB_ID;
 		fab.textContent = "译";
-		fab.title = "双击开关词典翻译，右键打开菜单，拖动可移动";
+		fab.title = isMobile
+			? "双击开关词典翻译，长按打开菜单，拖动可移动"
+			: "双击开关词典翻译，右键打开菜单，拖动可移动";
 		fab.className = "kiss-fab";
 
 		const startDrag = (evt: MouseEvent | TouchEvent) => {
-			this.dragging = true;
 			const { clientX, clientY } = this.getPoint(evt);
 			const rect = fab.getBoundingClientRect();
 			this.offsetX = clientX - rect.left;
 			this.offsetY = clientY - rect.top;
+			if (evt instanceof TouchEvent) {
+				this.touchStart = { x: clientX, y: clientY };
+				this.dragging = false; // 等移动阈值后再开始拖动
+			} else {
+				this.dragging = true;
+			}
 			evt.preventDefault();
 		};
 
 		const onMove = (evt: MouseEvent | TouchEvent) => {
-			if (!this.dragging) return;
 			const { clientX, clientY } = this.getPoint(evt);
+			if (!this.dragging && this.touchStart) {
+				const dx = Math.abs(clientX - this.touchStart.x);
+				const dy = Math.abs(clientY - this.touchStart.y);
+				if (dx > 4 || dy > 4) {
+					this.dragging = true;
+				}
+			}
+			if (!this.dragging) return;
 			const x = clientX - this.offsetX;
 			const y = clientY - this.offsetY;
 			fab.style.left = `${Math.max(0, Math.min(window.innerWidth - 44, x))}px`;
@@ -43,31 +62,70 @@ export class FloatingFab {
 
 		const endDrag = () => {
 			this.dragging = false;
+			this.touchStart = null;
 		};
 
 		fab.addEventListener("mousedown", startDrag);
-		fab.addEventListener("touchstart", startDrag);
+		fab.addEventListener("touchstart", (evt) => {
+			startDrag(evt);
+			if (this.longPressTimer) clearTimeout(this.longPressTimer);
+			this.longPressTimer = setTimeout(() => {
+				this.longPressTimer = null;
+				if (!this.dragging) {
+					const pt = this.getPoint(evt);
+					this.plugin.openScopeMenu(pt.clientX, pt.clientY);
+				}
+			}, 550);
+		});
 		window.addEventListener("mousemove", onMove);
 		window.addEventListener("touchmove", onMove);
 		window.addEventListener("mouseup", endDrag);
-		window.addEventListener("touchend", endDrag);
+		window.addEventListener("touchend", () => {
+			if (this.longPressTimer) {
+				clearTimeout(this.longPressTimer);
+				this.longPressTimer = null;
+			}
+			endDrag();
+		});
 
-		let clickTimeout: NodeJS.Timeout | null = null;
-		fab.addEventListener("click", (evt) => {
+		let lastTap = 0;
+		const handleActivate = (evt: Event) => {
 			if (this.dragging) return;
 			evt.preventDefault();
-			if (clickTimeout) {
-				clearTimeout(clickTimeout);
-				clickTimeout = null;
+			const now = Date.now();
+			if (now - lastTap < 320) {
+				lastTap = 0;
 				this.plugin.toggleUiDictionaryTranslations();
 			} else {
-				clickTimeout = setTimeout(() => {
-					clickTimeout = null;
-				}, 250);
+				lastTap = now;
+				setTimeout(() => {
+					if (lastTap === now) {
+						lastTap = 0;
+					}
+				}, 320);
 			}
+		};
+
+		fab.addEventListener("click", (evt) => {
+			if (isMobile) return; // 移动端用 touchend 处理双击
+			handleActivate(evt);
+		});
+
+		fab.addEventListener("touchend", (evt) => {
+			if (this.longPressTimer) {
+				clearTimeout(this.longPressTimer);
+				this.longPressTimer = null;
+			}
+			if (this.dragging) {
+				endDrag();
+				return;
+			}
+			endDrag();
+			handleActivate(evt);
 		});
 
 		fab.addEventListener("contextmenu", (evt) => {
+			if (isMobile) return;
 			evt.preventDefault();
 			this.plugin.openScopeMenu(evt.clientX, evt.clientY);
 		});

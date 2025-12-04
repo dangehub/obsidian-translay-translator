@@ -10,7 +10,6 @@ import {
 import { TranslationSession } from "./src/translator";
 import { FloatingFab } from "./src/fab";
 import { DictionaryStore } from "./src/dictionary";
-import * as path from "path";
 
 export interface KissTranslatorSettings {
 	apiType: "simple" | "openai";
@@ -117,7 +116,7 @@ export default class KissTranslatorPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-		this.dictStore = new DictionaryStore(this.getTranslationDir());
+		this.dictStore = new DictionaryStore(this.getTranslationDir(), this.app.vault.adapter);
 		await this.dictStore.ensureReady();
 
 		this.addCommand({
@@ -445,18 +444,8 @@ export default class KissTranslatorPlugin extends Plugin {
 	}
 
 	private getTranslationDir() {
-		const adapter = this.app.vault.adapter as any;
-		const basePath: string | undefined = adapter?.basePath;
-		if (basePath) {
-			return path.join(
-				basePath,
-				".obsidian",
-				"plugins",
-				this.manifest.id,
-				"translation"
-			);
-		}
-		return path.join(process.cwd(), "translation");
+		// 使用 vault 相对路径，兼容移动端
+		return `.obsidian/plugins/${this.manifest.id}/translation`;
 	}
 
 	public flattenSkipSelectors(presets: SkipPreset[]) {

@@ -40,8 +40,8 @@
 - 手动安装：将 `main.js`、`manifest.json`、`styles.css` 复制到 `<Vault>/.obsidian/plugins/aqu-kiss-translator/`。
 
 ## 已知限制 / 待规划
-- 暂不支持移动端
-- 每次进入编辑模式，会在最后加一个`edit`
+- 移动端支持不完善
+    - 移动端编辑译文时，键盘弹起会导致焦点变化，然后编辑框就消失了
 
 ## 致谢
 
