@@ -1,11 +1,11 @@
 {
-	"id": "kiss-translator-obsidian",
-	"name": "KISS Translator (Obsidian)",
+	"id": "aqu-kiss-translator",
+	"name": "KISS Translator",
 	"version": "0.1.0",
 	"minAppVersion": "0.15.0",
-	"description": "Translate the active note inside Obsidian with a lightweight inline bilingual view.",
-	"author": "Gabe & community",
-	"authorUrl": "https://github.com/fishjar/kiss-translator",
-	"fundingUrl": "https://github.com/fishjar/kiss-translator",
+	"description": "Translate Obsidian with a lightweight inline bilingual view.",
+	"author": "dangehub",
+	"authorUrl": "https://github.com/dangehub/kiss-translator-obsidian",
+	"fundingUrl": "https://github.com/dangehub/kiss-translator-obsidian",
 	"isDesktopOnly": false
 }

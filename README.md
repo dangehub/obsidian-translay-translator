@@ -1,94 +1,39 @@
-# Obsidian Sample Plugin
+# KISS Translator (Obsidian)
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+面向 Obsidian 的轻量双语翻译插件，来自 KISS Translator 的移植版本。
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## 功能概览
+- 翻译当前笔记（阅读模式），可隐藏/显示原文。
+- 悬浮球一键翻译当前界面（设置页/其他插件 UI），再次点击可清除译文。
+- 支持 OpenAI 兼容接口（自定义模型、system/user prompt）或简单文本接口（LibreTranslate 兼容）。
+- 可配置“不翻译的选择器”，默认跳过设置页侧边栏。
+- 译文样式为行内块，尽量不破坏布局。
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## 设置
+在 **设置 → 社区插件 → KISS Translator (Obsidian)** 中配置：
+- API 类型、API URL、API Key、模型（OpenAI 兼容）、源/目标语言。
+- 隐藏原文开关、打开笔记自动翻译。
+- 不翻译的选择器：一行一个 CSS 选择器，命中元素及其子节点不翻译（已默认包含设置页侧边栏）。
+- System/User Prompt（OpenAI 模式）可自定义，占位符 `{text}` `{from}` `{to}` 可用。
 
-## First time developing plugins?
+## 使用
+- 阅读模式下执行命令：“Translate current note (inline)” 翻译；“Toggle show original text” 切换原文；“Clear translations on current note” 清除。
+- 悬浮球：点击翻译当前可见界面（优先设置弹窗），再次点击清除；可拖拽位置。
 
-Quick starting guide for new plugin devs:
+## 开发 / 构建
+- 安装依赖：`npm install`
+- 开发监视：`npm run dev`
+- 构建：`npm run build`
+- 手动安装：将 `main.js`、`manifest.json`、`styles.css` 复制到 `<Vault>/.obsidian/plugins/kiss-translator-obsidian/`。
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+## 已知限制 / 待规划
+- 翻译结果当前仅内存缓存，未持久化；后续计划支持持久化词典与译文编辑回写。
+- UI 翻译的“归属插件”目前需手动通过选择器排除或自管范围，暂无自动识别来源机制。
 
-## Releasing new releases
+## Changelog
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
-
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
-
-## Adding your plugin to the community plugin list
-
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
-
-## How to use
-
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint ./src/`
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
-```
-
-If you have multiple URLs, you can also do:
-
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
-
-## API Documentation
-
-See https://github.com/obsidianmd/obsidian-api
+### 0.1.0
+- 添加笔记内联翻译/清除/显示隐藏原文命令，支持 OpenAI/LibreTranslate 配置与自定义 prompt。
+- 新增全局悬浮球，点击翻译/清除当前界面；支持拖拽位置。
+- 设置页文案改为中文，新增“不翻译的选择器”配置并默认屏蔽设置侧边栏。
+- 译文样式改为紧凑行内块，减少布局影响；README 更新使用与构建说明。
