@@ -239,3 +239,30 @@ If your plugin does not need CSS, delete this file.
 .skip-preset-actions button {
 	padding: 4px 8px;
 }
+
+.kiss-translating-loading {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-left: 4px;
+	border-radius: 50%;
+	background: var(--interactive-accent);
+	opacity: 0.7;
+	animation: kiss-pulse 1s ease-in-out infinite;
+	vertical-align: middle;
+}
+
+@keyframes kiss-pulse {
+	0% {
+		transform: scale(0.7);
+		opacity: 0.3;
+	}
+	50% {
+		transform: scale(1);
+		opacity: 0.8;
+	}
+	100% {
+		transform: scale(0.7);
+		opacity: 0.3;
+	}
+}

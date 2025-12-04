@@ -155,10 +155,14 @@ export class TranslationSession {
 		const text = this.normalizeText(block.innerText || "");
 		if (!text || text.length < 2) return;
 
-		const translated = await this.translateText(text, dictionaryOnly);
-		if (!translated) return;
-
 		const interactive = this.isInteractive(block);
+		const removeLoading = this.showLoading(block, interactive);
+
+		const translated = await this.translateText(text, dictionaryOnly);
+		if (!translated) {
+			removeLoading();
+			return;
+		}
 		// 基于原节点浅拷贝，尽可能继承标签与样式，避免丢失原有字体/字号/加粗等
 		const translation = interactive
 			? block
@@ -192,6 +196,7 @@ export class TranslationSession {
 			block.insertAdjacentElement("afterend", translation);
 		}
 		this.translated.set(block, translation);
+		removeLoading();
 	}
 
 	private attachHoverSwap(wrapper: HTMLElement) {
@@ -588,5 +593,16 @@ export class TranslationSession {
 		const pe = getComputedStyle(el).pointerEvents;
 		if (pe === "none") return false;
 		return false;
+	}
+
+	private showLoading(block: HTMLElement, interactive: boolean) {
+		const indicator = document.createElement("span");
+		indicator.className = "kiss-translating-loading";
+		if (interactive) {
+			block.appendChild(indicator);
+		} else {
+			block.insertAdjacentElement("afterend", indicator);
+		}
+		return () => indicator.remove();
 	}
 }
