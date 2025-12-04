@@ -341,23 +341,11 @@ export class TranslationSession {
 			promptSig: this.promptSig,
 		});
 		if (dictKey && this.dict) {
-			const hit = await this.dict.get(this.scopeId, dictKey);
-			if (hit?.translated) {
-				this.cache.set(text, hit.translated);
-				return hit.translated;
-			}
-			// 未命中当前词典，尝试其他 UI 词典作为兜底（减少重复翻译）
-			// 智能展示原文不涉及词典兜底，原逻辑保留当前词典命中
-			if (this.settings.smartOriginal) {
-				// 不做额外跨词典查找
-			} else {
-				for (const scope of this.settings.uiScopes || []) {
-					if (scope === this.scopeId) continue;
-					const alt = await this.dict.get(scope, dictKey);
-					if (alt?.translated) {
-						this.cache.set(text, alt.translated);
-						return alt.translated;
-					}
+			for (const scope of this.getSearchScopes()) {
+				const hit = await this.dict.get(scope, dictKey);
+				if (hit?.translated) {
+					this.cache.set(text, hit.translated);
+					return hit.translated;
 				}
 			}
 			if (dictionaryOnly) {
@@ -492,5 +480,13 @@ export class TranslationSession {
 
 	hasTranslations() {
 		return this.translated.size > 0;
+	}
+
+	private getSearchScopes(): string[] {
+		const scopes = new Set<string>();
+		scopes.add(this.scopeId);
+		(this.settings.uiScopes || []).forEach((s) => scopes.add(s));
+		(this.settings.recentUiScopes || []).forEach((s) => scopes.add(s));
+		return Array.from(scopes).filter(Boolean);
 	}
 }
