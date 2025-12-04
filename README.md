@@ -27,13 +27,19 @@
 - 安装依赖：`npm install`
 - 开发监视：`npm run dev`
 - 构建：`npm run build`
-- 手动安装：将 `main.js`、`manifest.json`、`styles.css` 复制到 `<Vault>/.obsidian/plugins/kiss-translator-obsidian/`。
+- 手动安装：将 `main.js`、`manifest.json`、`styles.css` 复制到 `<Vault>/.obsidian/plugins/aqu-kiss-translator/`。
 
 ## 已知限制 / 待规划
 - 暂不支持移动端
 - 每次进入编辑模式，会在最后加一个`edit`
 
 ## Changelog
+
+### 0.7.0
+- 译文样式：移除额外边框/背景，保留原字号/字体/行高等计算样式，避免样式漂移；隐藏原文改为 `display:none` 取消占位。
+- 交互兼容：按钮、链接、输入、label、option 等交互元素直接在原节点上替换文本（不克隆不隐藏），保留事件；含输入的 label 仅替换文本节点；下拉选项可翻译。
+- UI 翻译目标：优先捕获通用弹窗（非设置也覆盖），避免落到工作区导致二级弹窗不被翻译。
+- 体验提示：翻译进行中在识别的文本后显示呼吸动画点，提示正在处理。
 
 ### 0.6.0
 - 自动应用：监测界面变动后自动用所有词典填充译文，只读词典不调用接口，过滤掉译文内部的 DOM 变动避免闪烁。
