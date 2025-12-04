@@ -29,6 +29,7 @@ export interface KissTranslatorSettings {
 	hideOriginal: boolean;
 	autoTranslateOnOpen: boolean;
 	editMode?: boolean;
+	smartOriginal?: boolean;
 	maxTextLength?: number;
 }
 
@@ -95,6 +96,7 @@ const DEFAULT_SETTINGS: KissTranslatorSettings = {
 	hideOriginal: false,
 	autoTranslateOnOpen: false,
 	editMode: false,
+	smartOriginal: false,
 	maxTextLength: 160,
 };
 
@@ -373,26 +375,6 @@ export default class KissTranslatorPlugin extends Plugin {
 		const switches = document.createElement("div");
 		switches.className = "kiss-scope-switches";
 
-		// 隐藏原文开关
-		const hideRow = document.createElement("label");
-		hideRow.className = "kiss-switch-row";
-		const hideInput = document.createElement("input");
-		hideInput.type = "checkbox";
-		hideInput.checked = this.settings.hideOriginal;
-		hideInput.onchange = async () => {
-			this.settings.hideOriginal = hideInput.checked;
-			await this.saveSettings();
-			if (this.session) {
-				this.session.updateSettings(this.settings);
-				this.session.applyOriginalVisibility();
-			}
-		};
-		const hideText = document.createElement("span");
-		hideText.textContent = "隐藏原文";
-		hideRow.appendChild(hideInput);
-		hideRow.appendChild(hideText);
-		switches.appendChild(hideRow);
-
 		// 编辑模式开关
 		const editRow = document.createElement("label");
 		editRow.className = "kiss-switch-row";
@@ -410,6 +392,54 @@ export default class KissTranslatorPlugin extends Plugin {
 		editRow.appendChild(editInput);
 		editRow.appendChild(editText);
 		switches.appendChild(editRow);
+
+		// 隐藏原文开关
+		const hideRow = document.createElement("label");
+		hideRow.className = "kiss-switch-row";
+		const hideInput = document.createElement("input");
+		hideInput.type = "checkbox";
+		hideInput.checked = this.settings.hideOriginal;
+		hideInput.onchange = async () => {
+			this.settings.hideOriginal = hideInput.checked;
+			await this.saveSettings();
+			if (this.session) {
+				this.session.updateSettings(this.settings);
+				this.session.applyOriginalVisibility();
+			}
+			// 同步悬停展示原文的可用状态
+			if (!this.settings.hideOriginal) {
+				this.settings.smartOriginal = false;
+				smartInput.checked = false;
+				smartInput.disabled = true;
+				await this.saveSettings();
+			} else {
+				smartInput.disabled = false;
+				smartInput.checked = !!this.settings.smartOriginal;
+			}
+		};
+		const hideText = document.createElement("span");
+		hideText.textContent = "隐藏原文";
+		hideRow.appendChild(hideInput);
+		hideRow.appendChild(hideText);
+		switches.appendChild(hideRow);
+
+		// 悬停展示原文（需隐藏原文开启，缩进显示）
+		const smartRow = document.createElement("label");
+		smartRow.className = "kiss-switch-row";
+		smartRow.style.marginLeft = "16px";
+		const smartInput = document.createElement("input");
+		smartInput.type = "checkbox";
+		smartInput.checked = !!this.settings.smartOriginal;
+		smartInput.disabled = !this.settings.hideOriginal;
+		smartInput.onchange = async () => {
+			this.settings.smartOriginal = !!smartInput.checked;
+			await this.saveSettings();
+		};
+		const smartText = document.createElement("span");
+		smartText.textContent = "悬停时展示原文（只在隐藏原文时生效）";
+		smartRow.appendChild(smartInput);
+		smartRow.appendChild(smartText);
+		switches.appendChild(smartRow);
 
 		menu.appendChild(switches);
 

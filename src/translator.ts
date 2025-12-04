@@ -148,6 +148,9 @@ export class TranslationSession {
 		const inner = document.createElement("span");
 		inner.textContent = translated;
 		inner.setAttribute("data-source", text);
+		inner.setAttribute("data-translated", translated);
+		inner.setAttribute("data-original", text);
+		this.attachHoverSwap(translation, inner);
 		translation.appendChild(inner);
 
 		const dictKey = this.dict?.genKey({
@@ -164,6 +167,37 @@ export class TranslationSession {
 
 		block.insertAdjacentElement("afterend", translation);
 		this.translated.set(block, translation);
+	}
+
+	private attachHoverSwap(wrapper: HTMLElement, inner: HTMLElement) {
+		const swapText = (next: string) => {
+			inner.classList.add("kiss-switching");
+			inner.style.opacity = "0";
+			inner.style.filter = "blur(2px)";
+			setTimeout(() => {
+				inner.textContent = next;
+				inner.style.opacity = "1";
+				inner.style.filter = "blur(0)";
+				inner.classList.remove("kiss-switching");
+			}, 150);
+		};
+
+		wrapper.addEventListener("mouseenter", () => {
+			if (!this.settings.hideOriginal || !this.settings.smartOriginal) return;
+			const ori = inner.getAttribute("data-original");
+			if (ori) {
+				wrapper.classList.add("kiss-hovering-original");
+				swapText(ori);
+			}
+		});
+		wrapper.addEventListener("mouseleave", () => {
+			if (!this.settings.hideOriginal || !this.settings.smartOriginal) return;
+			const tr = inner.getAttribute("data-translated");
+			if (tr) {
+				wrapper.classList.remove("kiss-hovering-original");
+				swapText(tr);
+			}
+		});
 	}
 
 	private isBlockNode(el: HTMLElement) {
@@ -254,6 +288,7 @@ export class TranslationSession {
 			const val = textarea.value.trim();
 			if (!val) return;
 			inner.textContent = val;
+			inner.setAttribute("data-translated", val);
 			this.cache.set(source, val);
 			await this.dict?.set(this.scopeId, {
 				key: dictKey,
@@ -300,12 +335,17 @@ export class TranslationSession {
 				return hit.translated;
 			}
 			// 未命中当前词典，尝试其他 UI 词典作为兜底（减少重复翻译）
-			for (const scope of this.settings.uiScopes || []) {
-				if (scope === this.scopeId) continue;
-				const alt = await this.dict.get(scope, dictKey);
-				if (alt?.translated) {
-					this.cache.set(text, alt.translated);
-					return alt.translated;
+			// 智能展示原文不涉及词典兜底，原逻辑保留当前词典命中
+			if (this.settings.smartOriginal) {
+				// 不做额外跨词典查找
+			} else {
+				for (const scope of this.settings.uiScopes || []) {
+					if (scope === this.scopeId) continue;
+					const alt = await this.dict.get(scope, dictKey);
+					if (alt?.translated) {
+						this.cache.set(text, alt.translated);
+						return alt.translated;
+					}
 				}
 			}
 		}

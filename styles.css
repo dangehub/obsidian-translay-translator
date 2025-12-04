@@ -23,6 +23,16 @@ If your plugin does not need CSS, delete this file.
 	margin-bottom: 2px;
 }
 
+.kiss-translated-block span {
+	transition: filter 0.15s ease, opacity 0.15s ease;
+	display: inline-block;
+}
+
+.kiss-translated-block.kiss-switching span {
+	filter: blur(2px);
+	opacity: 0;
+}
+
 .kiss-hide-original {
 	display: none !important;
 }

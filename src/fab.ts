@@ -51,10 +51,19 @@ export class FloatingFab {
 		window.addEventListener("mouseup", endDrag);
 		window.addEventListener("touchend", endDrag);
 
+		let clickTimeout: NodeJS.Timeout | null = null;
 		fab.addEventListener("click", (evt) => {
 			if (this.dragging) return;
 			evt.preventDefault();
-			this.plugin.translateUIWithFab();
+			if (clickTimeout) {
+				clearTimeout(clickTimeout);
+				clickTimeout = null;
+				this.plugin.translateUIWithFab();
+			} else {
+				clickTimeout = setTimeout(() => {
+					clickTimeout = null;
+				}, 250);
+			}
 		});
 
 		fab.addEventListener("contextmenu", (evt) => {
