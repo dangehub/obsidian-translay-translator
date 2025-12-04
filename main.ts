@@ -279,9 +279,13 @@ export default class KissTranslatorPlugin extends Plugin {
 	}
 
 	private findUiTarget(): HTMLElement | null {
-		return (
+		// 优先翻译最上层弹窗（非设置页也包含），否则退到工作区
+		const modal =
+			document.querySelector<HTMLElement>(".modal-container .modal:not(.mod-sidebar-layout)") ||
 			document.querySelector<HTMLElement>(".modal.mod-settings") ||
-			document.querySelector<HTMLElement>(".modal-container .mod-settings") ||
+			document.querySelector<HTMLElement>(".modal-container .mod-settings");
+		if (modal) return modal;
+		return (
 			document.querySelector<HTMLElement>(".workspace-split.mod-vertical") ||
 			document.body ||
 			null

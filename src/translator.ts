@@ -122,8 +122,9 @@ export class TranslationSession {
 				if (this.isInSkipArea(el)) return false;
 				if (el.classList.contains(TRANSLATION_CLASS)) return false;
 				if (el.closest(`.${TRANSLATION_CLASS}`)) return false;
-				if (el.querySelector("input, textarea, select")) return false;
-				if (el.children.length > 0) return false;
+				const tag = el.tagName.toLowerCase();
+				if (tag !== "label" && el.querySelector("input, textarea, select")) return false;
+				if (tag !== "label" && el.children.length > 0) return false;
 				const text = this.normalizeText(el.innerText || "");
 				if (!text) return false;
 				if (text.length < 2) return false;
@@ -167,11 +168,13 @@ export class TranslationSession {
 		if (!interactive) {
 			this.copyInlineStyles(block, translation);
 		}
-		translation.textContent = translated;
+		this.setElementText(translation, translated);
 		translation.setAttribute("data-source", text);
 		translation.setAttribute("data-translated", translated);
 		translation.setAttribute("data-original", text);
-		this.attachHoverSwap(translation);
+		if (!interactive) {
+			this.attachHoverSwap(translation);
+		}
 
 		const dictKey = this.dict?.genKey({
 			text,
@@ -220,6 +223,24 @@ export class TranslationSession {
 				swapText(tr);
 			}
 		});
+	}
+
+	private setElementText(el: HTMLElement, text: string) {
+		const tag = el.tagName.toLowerCase();
+		const hasInputChild = !!el.querySelector("input, textarea, select");
+		if (tag === "label" && hasInputChild) {
+			// 保留子元素（如复选框），仅替换文本节点
+			Array.from(el.childNodes).forEach((node) => {
+				if (node.nodeType === Node.TEXT_NODE) {
+					el.removeChild(node);
+				}
+			});
+			const span = document.createElement("span");
+			span.textContent = text;
+			el.appendChild(span);
+			return;
+		}
+		el.textContent = text;
 	}
 
 	private isBlockNode(el: HTMLElement) {
@@ -545,6 +566,7 @@ export class TranslationSession {
 			tag === "textarea" ||
 			tag === "option" ||
 			tag === "input" ||
+			tag === "label" ||
 			(tag === "a" && (el as HTMLAnchorElement).href)
 		) {
 			return true;
