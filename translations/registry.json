@@ -1,0 +1,44 @@
+{
+  "languages": {
+    "en": [
+      {
+        "scope": "a",
+        "name": "A (English)",
+        "description": "English UI strings for plugin A",
+        "downloadUrl": "https://example.com/translations/en/a.json",
+        "updatedAt": 1735710000000,
+        "entryCount": 120,
+        "version": 1
+      },
+      {
+        "scope": "b",
+        "name": "B (English)",
+        "description": "English UI strings for plugin B",
+        "downloadUrl": "https://example.com/translations/en/b.json",
+        "updatedAt": 1735600000000,
+        "entryCount": 95,
+        "version": 1
+      }
+    ],
+    "zh": [
+      {
+        "scope": "PDF++",
+        "name": "PDF++",
+        "description": "PDF++",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/zh/pdf%2B%2B_zh.json",
+        "updatedAt": 1735715000000,
+        "entryCount": 120,
+        "version": 1
+      },
+      {
+        "scope": "BRAT",
+        "name": "BRAT",
+        "description": "BRAT",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/zh/BRAT_zh.json",
+        "updatedAt": 1735605000000,
+        "entryCount": 95,
+        "version": 1
+      }
+    ]
+  }
+}
