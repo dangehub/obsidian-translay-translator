@@ -73,6 +73,19 @@ export class DictionaryStore {
 		text,
 		fromLang,
 		toLang,
+	}: {
+		text: string;
+		fromLang: string;
+		toLang: string;
+	}) {
+		const payload = [text || "", fromLang || "", toLang || ""].join("|");
+		return this.hash(payload).slice(0, 24);
+	}
+
+	genLegacyKey({
+		text,
+		fromLang,
+		toLang,
 		apiType,
 		model,
 		promptSig,
@@ -158,9 +171,14 @@ export class DictionaryStore {
 		}
 	}
 
-	async get(scope: string, key: string): Promise<DictEntry | undefined> {
+	async get(scope: string, key: string | string[]): Promise<DictEntry | undefined> {
 		const file = await this.load(scope);
-		return file.entries.find((e) => e.key === key);
+		const keys = Array.isArray(key) ? key : [key];
+		for (const k of keys) {
+			const hit = file.entries.find((e) => e.key === k);
+			if (hit) return hit;
+		}
+		return undefined;
 	}
 
 	async set(scope: string, entry: DictEntry) {

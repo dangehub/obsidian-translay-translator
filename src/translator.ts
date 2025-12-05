@@ -178,16 +178,9 @@ export class TranslationSession {
 			this.attachHoverSwap(translation);
 		}
 
-		const dictKey = this.dict?.genKey({
-			text,
-			fromLang: this.settings.fromLang,
-			toLang: this.settings.toLang,
-			apiType: this.settings.apiType,
-			model: this.settings.model,
-			promptSig: this.promptSig,
-		});
-		if (dictKey && this.dict && !interactive) {
-			this.attachEditControls(translation, translation, dictKey, text);
+		const keyBundle = this.buildDictKeys(text);
+		if (keyBundle.primary && this.dict && !interactive) {
+			this.attachEditControls(translation, translation, keyBundle.primary, text);
 		}
 
 		if (!interactive) {
@@ -396,25 +389,27 @@ export class TranslationSession {
 		const cached = this.cache.get(text);
 		if (cached) return cached;
 
-		const dictKey = this.dict?.genKey({
-			text,
-			fromLang: this.settings.fromLang,
-			toLang: this.settings.toLang,
-			apiType: this.settings.apiType,
-			model: this.settings.model,
-			promptSig: this.promptSig,
-		});
-		if (dictKey && this.dict) {
+		const keys = this.buildDictKeys(text);
+		if (keys.primary && this.dict) {
 			for (const scope of this.getSearchScopes()) {
-				const hit = await this.dict.get(scope, dictKey);
+				const hit = await this.dict.get(scope, keys.all);
 				if (hit?.translated) {
 					this.cache.set(text, hit.translated);
+					// 迁移：如命中旧 key，将其保存为新 key
+					if (hit.key !== keys.primary) {
+						await this.dict.set(scope, { ...hit, key: keys.primary });
+					}
 					return hit.translated;
 				}
 			}
 			if (dictionaryOnly) {
 				return null;
 			}
+		}
+
+		if (!this.hasApiConfig()) {
+			// 没有配置在线翻译时，允许仅使用本地词典，不报错
+			return null;
 		}
 
 		const translatedText = await this.translateWithOpenAI(text);
@@ -424,15 +419,42 @@ export class TranslationSession {
 		}
 
 		this.cache.set(text, translatedText);
-		if (dictKey && this.dict) {
+		if (keys.primary && this.dict) {
 			await this.dict.set(this.scopeId, {
-				key: dictKey,
+				key: keys.primary,
 				source: text,
 				translated: translatedText,
 				updatedAt: Date.now(),
 			});
 		}
 		return translatedText;
+	}
+
+	private buildDictKeys(text: string) {
+		const primary = this.dict?.genKey({
+			text,
+			fromLang: this.settings.fromLang,
+			toLang: this.settings.toLang,
+		});
+		const legacy = this.dict?.genLegacyKey({
+			text,
+			fromLang: this.settings.fromLang,
+			toLang: this.settings.toLang,
+			apiType: this.settings.apiType,
+			model: this.settings.model,
+			promptSig: this.promptSig,
+		});
+		const all = Array.from(new Set([primary, legacy].filter(Boolean))) as string[];
+		return { primary: primary || null, legacy: legacy || null, all };
+	}
+
+	private hasApiConfig() {
+		return !!(
+			this.settings.apiUrl &&
+			this.settings.apiKey &&
+			this.settings.model &&
+			(this.settings.userPrompt || "").trim()
+		);
 	}
 
 	private fillTemplate(template: string, text: string) {

@@ -30,8 +30,8 @@ export class FloatingFab {
 		fab.id = FAB_ID;
 		fab.textContent = "译";
 		fab.title = isMobile
-			? "双击开关词典翻译，长按打开菜单，拖动可移动"
-			: "双击开关词典翻译，右键打开菜单，拖动可移动";
+			? "双击开关词典注入，长按打开菜单，拖动可移动"
+			: "双击开关词典注入，右键打开菜单，拖动可移动";
 		fab.className = "kiss-fab";
 		const saved = this.plugin.settings.fabPosition;
 		if (saved && typeof saved.x === "number" && typeof saved.y === "number") {
