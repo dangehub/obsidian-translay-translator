@@ -10,6 +10,7 @@ import {
 import { TranslationSession } from "./src/translator";
 import { FloatingFab } from "./src/fab";
 import { DictionaryStore } from "./src/dictionary";
+import { fetchCloudDict, fetchRegistry, type CloudDictMeta } from "./src/cloud";
 
 export interface KissTranslatorSettings {
 	apiType: "openai";
@@ -26,6 +27,9 @@ export interface KissTranslatorSettings {
 	uiScopes: string[];
 	recentUiScopes: string[];
 	hideOriginal: boolean;
+	extractOnly: boolean;
+	cloudRegistryUrl?: string;
+	cloudRegistryLang?: string;
 	editMode?: boolean;
 	smartOriginal?: boolean;
 	maxTextLength?: number;
@@ -94,6 +98,9 @@ const DEFAULT_SETTINGS: KissTranslatorSettings = {
 	uiScopes: ["ui-global"],
 	recentUiScopes: ["ui-global"],
 	hideOriginal: false,
+	extractOnly: false,
+	cloudRegistryUrl: "",
+	cloudRegistryLang: "",
 	editMode: false,
 	smartOriginal: false,
 	maxTextLength: 500,
@@ -121,6 +128,11 @@ export default class KissTranslatorPlugin extends Plugin {
 	private uiDictionaryEnabled = true;
 	private fabState: "off" | "empty" | "active" = "off";
 	private fabInitialized = false;
+	cloudRegistry: CloudDictMeta[] = [];
+	cloudRegistryLangs: string[] = [];
+	cloudRegistryLoading = false;
+	cloudRegistryError: string | null = null;
+	cloudRegistryQuery = "";
 
 	async onload() {
 		await this.loadSettings();
@@ -207,6 +219,39 @@ export default class KissTranslatorPlugin extends Plugin {
 			console.error(err);
 			new Notice(`KISS Translator: ${err.message}`);
 		});
+	}
+
+	extractUIWithFab() {
+		if (this.uiBusy) {
+			new Notice("KISS Translator: 正在提取，请稍候…");
+			return;
+		}
+		const target = this.findUiTarget();
+		if (!target) {
+			new Notice("KISS Translator: 未找到可提取的界面。");
+			return;
+		}
+
+		this.prepareUiSession();
+		this.uiDictionaryEnabled = true;
+		const session = this.uiSession;
+		if (!session) return;
+		this.suppressUiAuto = true;
+		this.uiBusy = true;
+		session
+			.extractOnly(target)
+			.then(() => {
+				this.setFabState("active");
+			})
+			.catch((err) => {
+				console.error(err);
+				this.setFabState("off");
+				new Notice(`KISS Translator: ${err.message}`);
+			})
+			.finally(() => {
+				this.uiBusy = false;
+				this.resumeUiAutoSoon();
+			});
 	}
 
 	translateUIWithFab() {
@@ -566,6 +611,60 @@ export default class KissTranslatorPlugin extends Plugin {
 		return `.obsidian/plugins/${this.manifest.id}/translation`;
 	}
 
+	async refreshCloudRegistry() {
+		if (!this.settings.cloudRegistryUrl) {
+			this.cloudRegistry = [];
+			this.cloudRegistryError = null;
+			this.cloudRegistryLangs = [];
+			return;
+		}
+		this.cloudRegistryLoading = true;
+		this.cloudRegistryError = null;
+		try {
+			const list = await fetchRegistry(this.settings.cloudRegistryUrl);
+			this.cloudRegistry = list;
+			const langs = Array.from(
+				new Set(
+					list
+						.map((i) => i.lang || "")
+						.map((s) => s.trim())
+				)
+			);
+			this.cloudRegistryLangs = langs;
+			if (!this.settings.cloudRegistryLang || !langs.includes(this.settings.cloudRegistryLang)) {
+				this.settings.cloudRegistryLang = langs[0] || "";
+				await this.saveSettings();
+			}
+		} catch (err) {
+			console.error(err);
+			this.cloudRegistryError = (err as any)?.message || String(err);
+		} finally {
+			this.cloudRegistryLoading = false;
+		}
+	}
+
+	async downloadCloudDict(meta: CloudDictMeta) {
+		if (!this.dictStore) return;
+		const notice = new Notice(`正在下载词典：${meta.name || meta.scope}`);
+		try {
+			const file = await fetchCloudDict(meta);
+			await this.dictStore.ensureScope(file.scope);
+			await this.dictStore.import(file.scope, file);
+			if (!this.settings.uiScopes.includes(file.scope)) {
+				this.settings.uiScopes.push(file.scope);
+			}
+			this.settings.recentUiScopes = Array.from(
+				new Set([file.scope, ...this.settings.recentUiScopes])
+			).slice(0, 5);
+			await this.saveSettings();
+			this.uiSession = null;
+			notice.setMessage(`已导入词典：${meta.name || meta.scope}`);
+		} catch (err) {
+			console.error(err);
+			new Notice(`下载词典失败：${(err as any)?.message || err}`);
+		}
+	}
+
 	private async syncUiScopesFromDisk() {
 		if (!this.dictStore) return;
 		const diskScopes = await this.dictStore.listScopes();
@@ -625,10 +724,14 @@ export default class KissTranslatorPlugin extends Plugin {
 		const actions = document.createElement("div");
 		actions.className = "kiss-scope-actions";
 		const translateBtn = document.createElement("button");
-		translateBtn.textContent = "翻译当前页面";
+		translateBtn.textContent = this.settings.extractOnly ? "提取当前页面" : "翻译当前页面";
 		translateBtn.onclick = (e) => {
 			e.stopPropagation();
-			this.translateUIWithFab();
+			if (this.settings.extractOnly) {
+				this.extractUIWithFab();
+			} else {
+				this.translateUIWithFab();
+			}
 			this.closeScopeMenu();
 		};
 		actions.appendChild(translateBtn);
@@ -862,6 +965,118 @@ class KissSettingTab extends PluginSettingTab {
 
 		// 按指南避免额外顶级 heading，直接列出设置项
 
+		const cloudSection = containerEl.createDiv({ cls: "kiss-cloud-section" });
+		cloudSection.createEl("h3", { text: "云端词典（只读）" });
+		new Setting(cloudSection)
+			.setName("清单地址")
+			.setDesc("提供一个云端词典清单 URL（JSON），可从 GitHub/Gitea/raw 静态文件读取")
+			.addText((text) =>
+				text
+					.setPlaceholder("https://example.com/registry.json")
+					.setValue(this.plugin.settings.cloudRegistryUrl || "")
+					.onChange(async (value) => {
+						this.plugin.settings.cloudRegistryUrl = value.trim();
+						await this.plugin.saveSettings();
+					})
+			)
+			.addExtraButton((btn) =>
+				btn
+					.setIcon("refresh-ccw")
+					.setTooltip("刷新云端词典清单")
+					.onClick(async () => {
+						await this.plugin.refreshCloudRegistry();
+						this.display();
+					})
+			);
+
+		if (this.plugin.cloudRegistryLoading) {
+			cloudSection.createEl("div", { text: "正在拉取云端清单…" });
+		} else if (this.plugin.cloudRegistryError) {
+			cloudSection.createEl("div", {
+				text: `拉取失败：${this.plugin.cloudRegistryError}`,
+				cls: "mod-warning",
+			});
+		} else if (this.plugin.cloudRegistry.length > 0) {
+			if (this.plugin.cloudRegistryLangs.length > 1) {
+				new Setting(cloudSection)
+					.setName("选择语言")
+					.addDropdown((dd) => {
+						this.plugin.cloudRegistryLangs.forEach((lang) => {
+							dd.addOption(lang || "default", lang || "default");
+						});
+						dd.setValue(this.plugin.settings.cloudRegistryLang || "");
+						dd.onChange(async (value) => {
+							this.plugin.settings.cloudRegistryLang = value;
+							await this.plugin.saveSettings();
+							this.display();
+						});
+					});
+			}
+
+			new Setting(cloudSection)
+				.setName("搜索词典")
+				.setDesc("按名称或 scope 过滤")
+				.addText((text) =>
+					text
+						.setPlaceholder("输入关键词过滤")
+						.setValue(this.plugin.cloudRegistryQuery)
+						.onChange((value) => {
+							this.plugin.cloudRegistryQuery = value;
+							this.display();
+						})
+				);
+
+			const langFilter = (this.plugin.settings.cloudRegistryLang || "").trim();
+			const query = (this.plugin.cloudRegistryQuery || "").trim().toLowerCase();
+			const filtered = this.plugin.cloudRegistry
+				.filter((item) => {
+					if (langFilter && (item.lang || "").trim() !== langFilter) return false;
+					if (!query) return true;
+					const name = (item.name || "").toLowerCase();
+					const scope = (item.scope || "").toLowerCase();
+					return name.includes(query) || scope.includes(query);
+				})
+				.slice()
+				.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+			const list = cloudSection.createEl("div", { cls: "kiss-cloud-list" });
+			if (filtered.length === 0) {
+				list.createEl("div", { text: "没有匹配的词典。" });
+			}
+			filtered.forEach((item) => {
+				const row = list.createEl("div", { cls: "kiss-cloud-row" });
+				const title = row.createEl("div", {
+					text: item.name || item.scope,
+					cls: "kiss-cloud-title",
+				});
+				title.setAttr("title", item.description || "");
+				row.createEl("div", {
+					text: `Scope: ${item.scope}`,
+					cls: "kiss-cloud-scope",
+				});
+				if (item.lang) {
+					row.createEl("div", { text: `语言: ${item.lang}`, cls: "kiss-cloud-lang" });
+				}
+				const metaLine: string[] = [];
+				if (item.updatedAt) metaLine.push(`更新: ${new Date(item.updatedAt).toLocaleString()}`);
+				if (item.entryCount) metaLine.push(`条目: ${item.entryCount}`);
+				if (metaLine.length > 0) {
+					row.createEl("div", { text: metaLine.join(" · "), cls: "kiss-cloud-meta" });
+				}
+				const actions = row.createEl("div", { cls: "kiss-cloud-actions" });
+				const btn = actions.createEl("button", { text: "下载" });
+				btn.onclick = async () => {
+					btn.setText("下载中…");
+					btn.toggleAttribute("disabled", true);
+					await this.plugin.downloadCloudDict(item);
+					btn.setText("下载");
+					btn.toggleAttribute("disabled", false);
+				};
+			});
+		} else {
+			cloudSection.createEl("div", { text: "未配置清单，或清单为空。" });
+		}
+
 		new Setting(containerEl)
 			.setName("API 接口类型")
 			.setDesc("支持 OpenAI compatible api")
@@ -1061,6 +1276,18 @@ class KissSettingTab extends PluginSettingTab {
 						this.plugin.settings.userPrompt = value;
 						void this.plugin.saveSettings();
 					})
+			);
+
+		new Setting(containerEl)
+			.setName("仅提取词典（不调用在线翻译）")
+			.setDesc("开启后，悬浮球菜单显示“提取当前页面”，会把当前页面文案写入词典，source 与 translated 相同，便于后续人工翻译。")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.extractOnly).onChange(async (value) => {
+					this.plugin.settings.extractOnly = value;
+					await this.plugin.saveSettings();
+					this.plugin.session?.updateSettings(this.plugin.settings);
+					this.plugin.uiSession?.updateSettings(this.plugin.settings);
+				})
 			);
 	}
 }
