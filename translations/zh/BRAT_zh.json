@@ -114,7 +114,7 @@
       "key": "6a3f334a6a3f334a6a3f334a",
       "source": "Beta themes list",
       "translated": "Beta主题列表",
-      "updatedAt": 1764957142430
+      "updatedAt": 1764949323375
     },
     {
       "key": "9142cbfa9142cbfa9142cbfa",
@@ -179,7 +179,7 @@
     {
       "key": "24864aad24864aad24864aad",
       "source": "Debugging mode",
-      "translated": "Debugging mode",
+      "translated": "调试模式",
       "updatedAt": 1764949323375
     },
     {
@@ -191,13 +191,13 @@
     {
       "key": "512f21df512f21df512f21df",
       "source": "Personal access token",
-      "translated": "Personal access token",
+      "translated": "个人访问令牌",
       "updatedAt": 1764949323375
     },
     {
       "key": "18096c3e18096c3e18096c3e",
       "source": "Validate",
-      "translated": "Validate",
+      "translated": "确认",
       "updatedAt": 1764949323375
     },
     {
