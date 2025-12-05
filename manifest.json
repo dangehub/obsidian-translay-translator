@@ -5,6 +5,6 @@
 	"minAppVersion": "0.15.0",
 	"description": "Translate UI and notes with an inline bilingual view using your OpenAI-compatible endpoint.",
 	"author": "dangehub",
-	"authorUrl": "https://github.com/dangehub/kiss-translator-obsidian",
+	"authorUrl": "https://blog.qudange.top",
 	"isDesktopOnly": false
 }
