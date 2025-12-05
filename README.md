@@ -51,16 +51,18 @@
 - 构建：`npm run build`
 - 手动安装：将 `main.js`、`manifest.json`、`styles.css` 复制到 `<Vault>/.obsidian/plugins/aqu-kiss-translator/`。
 
-## 开发路线/待完善功能
+## 开发路线/已知BUG
 - 上架Obsidian插件市场
 - 可视化导入/导出词典
 - 可视化插件入门引导
 - 云端词典市场
+- 翻译带有链接的文本块会导致链接无法点击，因此暂不允许进行此类操作
 
-## 致谢
+## 致谢与碎碎念
 
 - 本项目受到[fishjar/kiss-translator: A simple, open source bilingual translation extension &amp; Greasemonkey script (一个简约、开源的 双语对照翻译扩展 &amp; 油猴脚本)](https://github.com/fishjar/kiss-translator)启发
 - 沉浸式翻译很好用，但是sdk不公开了，故开发此插件
+- 以前开发的i18n插件，因为会修改其他插件的源码所以不被允许上架，这个插件换了一种实现方法，不会修改源代码
 
 ## Vibe Coding警告
 
