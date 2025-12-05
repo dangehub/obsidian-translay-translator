@@ -110,6 +110,12 @@ export default class KissTranslatorPlugin extends Plugin {
 	private uiBusy = false;
 	private uiMutationObserver: MutationObserver | null = null;
 	private uiMutationTimer: number | null = null;
+	private uiScrollHandler: (() => void) | null = null;
+	private uiResizeHandler: (() => void) | null = null;
+	private uiScrollContainer: HTMLElement | null = null;
+	private uiCurrentTarget: HTMLElement | null = null;
+	private uiTargetPageKey: string | null = null;
+	private uiDictionaryPending = false;
 	private suppressUiAuto = false;
 	private uiDictionaryEnabled = true;
 	private fabState: "off" | "empty" | "active" = "off";
@@ -236,16 +242,28 @@ export default class KissTranslatorPlugin extends Plugin {
 	}
 
 	private applyUiDictionaryTranslations() {
-		if (this.uiBusy || !this.uiDictionaryEnabled) return;
+		if (this.uiBusy) {
+			this.uiDictionaryPending = true;
+			return;
+		}
+		if (!this.uiDictionaryEnabled) return;
 		const target = this.findUiTarget();
 		if (!target) return;
+		this.attachUiScrollHandlers(target);
 		this.prepareUiSession();
 		const session = this.uiSession;
 		if (!session) return;
+		const pageKey = this.getTargetPageKey(target);
+		if (this.uiCurrentTarget !== target || this.uiTargetPageKey !== pageKey) {
+			session.clear();
+			this.uiCurrentTarget = target;
+			this.uiTargetPageKey = pageKey;
+		}
+		session.setVisibleContainer(this.uiScrollContainer);
 		this.suppressUiAuto = true;
 		this.uiBusy = true;
 		session
-			.translate(target, { dictionaryOnly: true })
+			.translate(target, { dictionaryOnly: true, visibleOnly: true })
 			.then(() => {
 				this.setFabState(session.hasTranslations() ? "active" : "empty");
 			})
@@ -254,6 +272,10 @@ export default class KissTranslatorPlugin extends Plugin {
 			})
 			.finally(() => {
 				this.uiBusy = false;
+				if (this.uiDictionaryPending) {
+					this.uiDictionaryPending = false;
+					this.scheduleUiDictionaryApply();
+				}
 				this.resumeUiAutoSoon();
 			});
 	}
@@ -315,7 +337,7 @@ export default class KissTranslatorPlugin extends Plugin {
 		this.uiMutationTimer = window.setTimeout(() => {
 			this.uiMutationTimer = null;
 			this.applyUiDictionaryTranslations();
-		}, 200);
+		}, 120);
 	}
 
 	private startUiAutoApply() {
@@ -337,6 +359,20 @@ export default class KissTranslatorPlugin extends Plugin {
 			subtree: true,
 			characterData: true,
 		});
+
+		const onScroll = () => {
+			if (this.suppressUiAuto) return;
+			this.scheduleUiDictionaryApply();
+		};
+		const onResize = () => {
+			if (this.suppressUiAuto) return;
+			this.scheduleUiDictionaryApply();
+		};
+		window.addEventListener("scroll", onScroll, { passive: true });
+		window.addEventListener("resize", onResize);
+		this.uiScrollHandler = () => window.removeEventListener("scroll", onScroll);
+		this.uiResizeHandler = () => window.removeEventListener("resize", onResize);
+
 		this.scheduleUiDictionaryApply();
 	}
 
@@ -349,6 +385,87 @@ export default class KissTranslatorPlugin extends Plugin {
 			window.clearTimeout(this.uiMutationTimer);
 			this.uiMutationTimer = null;
 		}
+		if (this.uiScrollHandler) {
+			this.uiScrollHandler();
+			this.uiScrollHandler = null;
+		}
+		if (this.uiResizeHandler) {
+			this.uiResizeHandler();
+			this.uiResizeHandler = null;
+		}
+		if (this.uiScrollContainer) {
+			this.uiScrollContainer = null;
+		}
+		this.uiCurrentTarget = null;
+		this.uiTargetPageKey = null;
+	}
+
+	private attachUiScrollHandlers(target: HTMLElement) {
+		const container = this.findScrollContainer(target);
+		if (container === this.uiScrollContainer) return;
+		// no specific container found, rely on window scroll
+		if (this.uiScrollContainer && this.uiScrollHandler) {
+			// previous container cleanup handled by handler
+			this.uiScrollHandler();
+			this.uiScrollHandler = null;
+		}
+		this.uiScrollContainer = container;
+		if (!container) return;
+		const onScroll = () => {
+			if (this.suppressUiAuto) return;
+			this.scheduleUiDictionaryApply();
+		};
+		container.addEventListener("scroll", onScroll, { passive: true });
+		this.uiScrollHandler = () => container.removeEventListener("scroll", onScroll);
+	}
+
+	private findScrollContainer(target: HTMLElement): HTMLElement | null {
+		// 针对设置页优先定位可能的滚动容器
+		const settingsModal = target.closest(".modal.mod-settings");
+		if (settingsModal) {
+			const preferredSelectors = [
+				"body > div.modal-container.mod-dim > div.modal.mod-settings.mod-sidebar-layout > div.modal-content.vertical-tabs-container > div.vertical-tab-content-container > div",
+				".modal.mod-settings .vertical-tab-content",
+				".modal.mod-settings .vertical-tab-content-container",
+			];
+			for (const sel of preferredSelectors) {
+				const candidate = settingsModal.querySelector<HTMLElement>(sel);
+				if (candidate && candidate.scrollHeight > candidate.clientHeight + 8) {
+					return candidate;
+				}
+			}
+		}
+		let el: HTMLElement | null = target;
+		while (el) {
+			const style = getComputedStyle(el);
+			const canScrollY =
+				el.scrollHeight > el.clientHeight + 8 &&
+				(style.overflowY === "auto" || style.overflowY === "scroll");
+			if (canScrollY) return el;
+			el = el.parentElement;
+		}
+		return null;
+	}
+
+	private getTargetPageKey(target: HTMLElement): string {
+		// 针对设置页，使用当前激活 tab 作为页面标识
+		const settingsModal = target.closest(".modal.mod-settings");
+		if (settingsModal) {
+			const activeTab =
+				settingsModal.querySelector<HTMLElement>(".vertical-tab-header .is-active") ||
+				settingsModal.querySelector<HTMLElement>(".vertical-tab-header .nav-action.is-active");
+			const text = activeTab?.textContent?.trim();
+			if (text) return `settings:${text}`;
+		}
+		// 通用兜底：使用 target 的 tag + class + 可见标题
+		const title =
+			target.getAttribute("aria-label") ||
+			target.querySelector<HTMLElement>(".view-header-title")?.textContent ||
+			target.querySelector<HTMLElement>(".modal-title")?.textContent ||
+			target.querySelector<HTMLElement>("h1,h2,h3")?.textContent ||
+			"";
+		const cls = Array.from(target.classList).join(".");
+		return `${target.tagName.toLowerCase()}.${cls}:${(title || "").trim()}`;
 	}
 
 	private clearActive() {

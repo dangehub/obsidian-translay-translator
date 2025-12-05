@@ -15,6 +15,7 @@ export class TranslationSession {
 	private dict?: DictionaryStore;
 	private scopeId: string;
 	private promptSig: string;
+	private visibleContainer: HTMLElement | null = null;
 
 	constructor(
 		view: MarkdownView | null,
@@ -33,22 +34,33 @@ export class TranslationSession {
 		this.promptSig = (settings.systemPrompt || "") + (settings.userPrompt || "");
 	}
 
+	setVisibleContainer(el: HTMLElement | null) {
+		this.visibleContainer = el;
+	}
+
 	async translate(
 		rootOverride?: HTMLElement,
 		options?: {
 			dictionaryOnly?: boolean;
+			visibleOnly?: boolean;
 		}
 	) {
 		const dictionaryOnly = options?.dictionaryOnly ?? false;
+		const visibleOnly = options?.visibleOnly ?? false;
+		const incremental = dictionaryOnly && visibleOnly;
 		const root = rootOverride ?? this.findPreviewRoot();
 		if (!root) {
 			throw new Error("未找到可翻译的区域。");
 		}
 
-		this.clear();
+		if (!incremental) {
+			this.clear();
+		}
 
 		const blocks = this.collectBlocks(root);
-		for (const block of blocks) {
+		const targetBlocks = visibleOnly ? this.filterVisibleBlocks(blocks) : blocks;
+		for (const block of targetBlocks) {
+			if (incremental && this.translated.has(block)) continue;
 			await this.translateBlock(block, dictionaryOnly);
 		}
 
@@ -588,6 +600,20 @@ export class TranslationSession {
 		const pe = getComputedStyle(el).pointerEvents;
 		if (pe === "none") return false;
 		return false;
+	}
+
+	private filterVisibleBlocks(blocks: HTMLElement[]) {
+		const buffer = 400; // 提前加载视口上下缓冲
+		const containerRect = this.visibleContainer?.getBoundingClientRect();
+		const viewTop = containerRect ? containerRect.top - buffer : -buffer;
+		const viewBottom = containerRect
+			? containerRect.bottom + buffer
+			: (window.innerHeight || 0) + buffer;
+		return blocks.filter((el) => {
+			const rect = el.getBoundingClientRect();
+			if (!rect) return false;
+			return rect.bottom >= viewTop && rect.top <= viewBottom;
+		});
 	}
 
 	private showLoading(block: HTMLElement, interactive: boolean) {
