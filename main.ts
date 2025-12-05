@@ -323,6 +323,8 @@ export default class KissTranslatorPlugin extends Plugin {
 		if (this.uiMutationObserver || !document?.body) return;
 		this.uiMutationObserver = new MutationObserver((records) => {
 			if (this.suppressUiAuto) return;
+			// 编辑浮层存在时不触发自动应用，避免输入时被刷掉
+			if (document.querySelector(".kiss-edit-wrapper")) return;
 			// 忽略仅发生在已有翻译块内部的变动，避免悬停切换时反复重绘导致闪烁
 			const meaningful = records.some((m) => {
 				const target = m.target as HTMLElement;
