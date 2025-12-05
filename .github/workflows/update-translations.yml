@@ -17,12 +17,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2   # 需要 HEAD^ 做 diff
+          fetch-depth: 0   # 保证 merge 场景也能拿到父节点
 
       - name: Find changed translation files
         id: diff
         run: |
-          FILES=$(git diff --name-only HEAD^ HEAD -- translations/**.json ':!translations/registry.json' || true)
+          # 优先用第一个父节点（兼容 merge commit）；如果没有，再用 merge-base
+          FILES=$(git diff --name-only HEAD^1 HEAD -- translations/**.json ':!translations/registry.json' 2>/dev/null || true)
+          if [ -z "$FILES" ]; then
+            BASE=$(git merge-base HEAD origin/${GITHUB_REF_NAME:-main} || git rev-parse HEAD^)
+            FILES=$(git diff --name-only "$BASE" HEAD -- translations/**.json ':!translations/registry.json' || true)
+          fi
           echo "files<<EOF" >> $GITHUB_OUTPUT
           echo "$FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
