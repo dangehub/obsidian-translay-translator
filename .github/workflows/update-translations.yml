@@ -14,22 +14,29 @@ permissions:
 
 jobs:
   update-translations:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # 保证 merge 场景也能拿到父节点
+          fetch-depth: 0
 
       - name: Find changed translation files
         id: diff
         run: |
-          # 优先用第一个父节点（兼容 merge commit）；如果没有，再用 merge-base
-          FILES=$(git diff --name-only HEAD^1 HEAD -- translations/**.json ':!translations/registry.json' 2>/dev/null || true)
-          if [ -z "$FILES" ]; then
-            BASE=$(git merge-base HEAD origin/${GITHUB_REF_NAME:-main} || git rev-parse HEAD^)
-            FILES=$(git diff --name-only "$BASE" HEAD -- translations/**.json ':!translations/registry.json' || true)
+          # Prefer the push event's "before" SHA to avoid origin/main == HEAD
+          BASE=${GITHUB_EVENT_BEFORE:-${{ github.event.before }}}
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD^)
           fi
+          FILES=$(git diff --name-only "$BASE"...HEAD -- translations/**.json ':!translations/registry.json' 2>/dev/null || true)
+          # Fallback for edge cases
+          if [ -z "$FILES" ]; then
+            FILES=$(git diff --name-only HEAD^1 HEAD -- translations/**.json ':!translations/registry.json' 2>/dev/null || true)
+          fi
+          echo "Changed files (base=$BASE):"
+          echo "$FILES"
           echo "files<<EOF" >> $GITHUB_OUTPUT
           echo "$FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -50,7 +57,7 @@ jobs:
               const prev = cp.execSync(`git show HEAD^:${file}`).toString('utf8');
               prevJson = JSON.parse(prev);
             } catch {
-              prevJson = { entries: [] }; // 新文件或无上一版本
+              prevJson = { entries: [] }; // new file or missing previous version
             }
             const curJson = JSON.parse(fs.readFileSync(file, 'utf8'));
             const oldMap = new Map((prevJson.entries || []).map(e => [e.key, e]));
@@ -108,7 +115,7 @@ jobs:
             if (file === registryPath) continue;
             if (!file.endsWith('.json')) continue;
             const rel = path.relative(root, file).split(path.sep);
-            if (rel.length < 2) continue; // 期望 translations/<lang>/<file>
+            if (rel.length < 2) continue; // expect translations/<lang>/<file>
             const lang = rel[0];
             const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
             const stats = fs.statSync(file);
