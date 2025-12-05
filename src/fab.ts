@@ -7,11 +7,13 @@ export class FloatingFab {
 	private plugin: KissTranslatorPlugin;
 	private el: HTMLDivElement | null = null;
 	private dragging = false;
+	private moved = false;
 	private offsetX = 0;
 	private offsetY = 0;
 	private state: "off" | "empty" | "active" = "off";
 	private longPressTimer: NodeJS.Timeout | null = null;
 	private touchStart: { x: number; y: number } | null = null;
+	private pos = { x: 0, y: 0 };
 
 	constructor(plugin: KissTranslatorPlugin) {
 		this.plugin = plugin;
@@ -29,12 +31,21 @@ export class FloatingFab {
 			? "双击开关词典翻译，长按打开菜单，拖动可移动"
 			: "双击开关词典翻译，右键打开菜单，拖动可移动";
 		fab.className = "kiss-fab";
+		const saved = this.plugin.settings.fabPosition;
+		if (saved && typeof saved.x === "number" && typeof saved.y === "number") {
+			this.pos = { x: saved.x, y: saved.y };
+			fab.style.left = `${saved.x}px`;
+			fab.style.top = `${saved.y}px`;
+			fab.style.right = "auto";
+			fab.style.bottom = "auto";
+		}
 
 		const startDrag = (evt: MouseEvent | TouchEvent) => {
 			const { clientX, clientY } = this.getPoint(evt);
 			const rect = fab.getBoundingClientRect();
 			this.offsetX = clientX - rect.left;
 			this.offsetY = clientY - rect.top;
+			this.moved = false;
 			if (evt instanceof TouchEvent) {
 				this.touchStart = { x: clientX, y: clientY };
 				this.dragging = false; // 等移动阈值后再开始拖动
@@ -54,15 +65,23 @@ export class FloatingFab {
 				}
 			}
 			if (!this.dragging) return;
-			const x = clientX - this.offsetX;
-			const y = clientY - this.offsetY;
-			fab.style.left = `${Math.max(0, Math.min(window.innerWidth - 44, x))}px`;
-			fab.style.top = `${Math.max(0, Math.min(window.innerHeight - 44, y))}px`;
+			const x = Math.max(0, Math.min(window.innerWidth - 44, clientX - this.offsetX));
+			const y = Math.max(0, Math.min(window.innerHeight - 44, clientY - this.offsetY));
+			this.pos = { x, y };
+			fab.style.left = `${x}px`;
+			fab.style.top = `${y}px`;
+			fab.style.right = "auto";
+			fab.style.bottom = "auto";
+			this.moved = true;
 		};
 
 		const endDrag = () => {
+			const wasDragging = this.dragging;
 			this.dragging = false;
 			this.touchStart = null;
+			if (wasDragging && this.moved) {
+				this.plugin.saveFabPosition(this.pos);
+			}
 		};
 
 		fab.addEventListener("mousedown", startDrag);

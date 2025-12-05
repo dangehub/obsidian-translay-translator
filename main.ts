@@ -30,6 +30,7 @@ export interface KissTranslatorSettings {
 	editMode?: boolean;
 	smartOriginal?: boolean;
 	maxTextLength?: number;
+	fabPosition?: { x: number; y: number };
 }
 
 interface SkipPreset {
@@ -97,6 +98,7 @@ const DEFAULT_SETTINGS: KissTranslatorSettings = {
 	editMode: false,
 	smartOriginal: false,
 	maxTextLength: 160,
+	fabPosition: undefined,
 };
 
 export default class KissTranslatorPlugin extends Plugin {
@@ -113,6 +115,7 @@ export default class KissTranslatorPlugin extends Plugin {
 	private suppressUiAuto = false;
 	private uiDictionaryEnabled = true;
 	private fabState: "off" | "empty" | "active" = "off";
+	private fabInitialized = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -173,6 +176,11 @@ export default class KissTranslatorPlugin extends Plugin {
 	private setFabState(state: "off" | "empty" | "active") {
 		this.fabState = state;
 		this.fab?.setState(state);
+	}
+
+	async saveFabPosition(pos: { x: number; y: number }) {
+		this.settings.fabPosition = pos;
+		await this.saveSettings();
 	}
 
 	private getActiveMarkdownView(): MarkdownView | null {

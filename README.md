@@ -39,9 +39,11 @@
 - 构建：`npm run build`
 - 手动安装：将 `main.js`、`manifest.json`、`styles.css` 复制到 `<Vault>/.obsidian/plugins/aqu-kiss-translator/`。
 
-## 已知限制 / 待规划
-- 移动端支持不完善
-    - 移动端编辑译文时，键盘弹起会导致焦点变化，然后编辑框就消失了
+## 开发路线/待完善功能
+- 上架Obsidian插件市场
+- 可视化导入/导出词典
+- 可视化插件入门引导
+- 云端词典市场
 
 ## 致谢
 
