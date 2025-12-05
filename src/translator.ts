@@ -1,4 +1,4 @@
-import { MarkdownView } from "obsidian";
+import { MarkdownView, requestUrl } from "obsidian";
 import type { KissTranslatorSettings } from "../main";
 import { DictionaryStore } from "./dictionary";
 
@@ -83,7 +83,6 @@ export class TranslationSession {
 		this.translated.forEach((translation, original) => {
 			if (translation === original) return; // 交互元素直接改文本，不隐藏
 			original.classList.add(HIDE_ORIGINAL_CLASS);
-			(original as HTMLElement).style.display = "none";
 		});
 	}
 
@@ -91,7 +90,6 @@ export class TranslationSession {
 		this.translated.forEach((translation, original) => {
 			if (translation === original) return;
 			original.classList.remove(HIDE_ORIGINAL_CLASS);
-			(original as HTMLElement).style.display = "";
 		});
 	}
 
@@ -116,7 +114,7 @@ export class TranslationSession {
 	private collectBlocks(root: HTMLElement): HTMLElement[] {
 		const selector =
 			"p, li, blockquote, h1, h2, h3, h4, h5, h6, td, th, pre, button, label, span, div, option";
-		const maxLen = this.settings.maxTextLength ?? 160;
+		const maxLen = this.settings.maxTextLength ?? 500;
 		return Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
 			(el) => {
 				if (this.isInSkipArea(el)) return false;
@@ -202,12 +200,8 @@ export class TranslationSession {
 	private attachHoverSwap(wrapper: HTMLElement) {
 		const swapText = (next: string) => {
 			wrapper.classList.add("kiss-switching");
-			wrapper.style.opacity = "0";
-			wrapper.style.filter = "blur(2px)";
 			setTimeout(() => {
 				wrapper.textContent = next;
-				wrapper.style.opacity = "1";
-				wrapper.style.filter = "blur(0)";
 				wrapper.classList.remove("kiss-switching");
 			}, 150);
 		};
@@ -287,8 +281,24 @@ export class TranslationSession {
 		btn.type = "button";
 		btn.title = "编辑译文";
 		btn.setAttribute("aria-label", "编辑译文");
-		btn.innerHTML =
-			'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="kiss-edit-icon"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"></path></svg>';
+		const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+		svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+		svg.setAttribute("width", "16");
+		svg.setAttribute("height", "16");
+		svg.setAttribute("viewBox", "0 0 24 24");
+		svg.setAttribute("fill", "none");
+		svg.setAttribute("stroke", "currentColor");
+		svg.setAttribute("stroke-width", "2");
+		svg.setAttribute("stroke-linecap", "round");
+		svg.setAttribute("stroke-linejoin", "round");
+		svg.classList.add("kiss-edit-icon");
+		const p1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+		p1.setAttribute("d", "M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7");
+		const p2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+		p2.setAttribute("d", "M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z");
+		svg.appendChild(p1);
+		svg.appendChild(p2);
+		btn.appendChild(svg);
 		btn.addEventListener("click", (evt) => {
 			evt.stopPropagation();
 			this.openEditor(wrapper, inner, dictKey, source);
@@ -329,33 +339,37 @@ export class TranslationSession {
 		const cleanup = () => host.remove();
 		cancelBtn.onclick = cleanup;
 
-		resetBtn.onclick = async () => {
-			cleanup();
-			await this.dict?.remove(this.scopeId, dictKey);
-			this.cache.delete(source);
-			inner.textContent = "[...]";
-			try {
-				const fresh = await this.translateWithFallback(source, false);
-				if (fresh) inner.textContent = fresh;
-			} catch (err) {
-				console.error(err);
-			}
+		resetBtn.onclick = () => {
+			void (async () => {
+				cleanup();
+				await this.dict?.remove(this.scopeId, dictKey);
+				this.cache.delete(source);
+				inner.textContent = "[...]";
+				try {
+					const fresh = await this.translateWithFallback(source, false);
+					if (fresh) inner.textContent = fresh;
+				} catch (err) {
+					console.error(err);
+				}
+			})();
 		};
 
-		saveBtn.onclick = async () => {
-			const val = textarea.value.trim();
-			if (!val) return;
-			this.setElementText(inner, val);
-			inner.setAttribute("data-translated", val);
-			this.cache.set(source, val);
-			await this.dict?.set(this.scopeId, {
-				key: dictKey,
-				source,
-				translated: val,
-				updatedAt: Date.now(),
-				edited: true,
-			});
-			cleanup();
+		saveBtn.onclick = () => {
+			void (async () => {
+				const val = textarea.value.trim();
+				if (!val) return;
+				this.setElementText(inner, val);
+				inner.setAttribute("data-translated", val);
+				this.cache.set(source, val);
+				await this.dict?.set(this.scopeId, {
+					key: dictKey,
+					source,
+					translated: val,
+					updatedAt: Date.now(),
+					edited: true,
+				});
+				cleanup();
+			})();
 		};
 
 		wrapper.appendChild(host);
@@ -455,7 +469,8 @@ export class TranslationSession {
 			stream: false,
 		};
 
-		const res = await fetch(apiUrl, {
+		const res = await requestUrl({
+			url: apiUrl,
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -464,13 +479,13 @@ export class TranslationSession {
 			body: JSON.stringify(body),
 		});
 
-		if (!res.ok) {
-			const msg = await res.text();
+		if (res.status < 200 || res.status >= 300) {
+			const msg = res.text;
 			throw new Error(`接口错误 ${res.status}: ${msg}`);
 		}
 
 		try {
-			const data = await res.json();
+			const data = res.json;
 			const content = data?.choices?.[0]?.message?.content;
 			if (typeof content === "string") {
 				return content.trim();
@@ -547,7 +562,7 @@ export class TranslationSession {
 			return true;
 		}
 		if (el.isContentEditable) return true;
-		if ((el as any).onclick) return true;
+		if (typeof el.onclick === "function") return true;
 		const pe = getComputedStyle(el).pointerEvents;
 		if (pe === "none") return false;
 		return false;

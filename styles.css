@@ -26,6 +26,17 @@ If your plugin does not need CSS, delete this file.
 	opacity: 0;
 }
 
+.kiss-switching {
+	opacity: 0;
+	filter: blur(2px);
+	transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.kiss-fab-custom {
+	right: auto !important;
+	bottom: auto !important;
+}
+
 .kiss-hide-original {
 	display: none !important;
 }
@@ -99,6 +110,10 @@ If your plugin does not need CSS, delete this file.
 
 .kiss-edit-wrapper button {
 	align-self: flex-start;
+}
+
+.kiss-modal-input {
+	width: 100%;
 }
 
 .kiss-scope-menu {
@@ -223,6 +238,27 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+}
+
+.skip-preset-row-indented {
+	margin-left: 16px;
+}
+
+.skip-preset-block {
+	display: block;
+}
+
+.skip-preset-input,
+.skip-preset-textarea {
+	width: 100%;
+}
+
+.skip-preset-textarea {
+	min-height: 60px;
+}
+
+.kiss-smart-row-indent {
+	margin-left: 16px;
 }
 
 .skip-preset-label {

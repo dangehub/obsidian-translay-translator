@@ -30,11 +30,8 @@ export class DictionaryStore {
 	}
 
 	async ensureReady() {
-		try {
-			// @ts-ignore mkdir is available on FileSystemAdapter; noop if not
-			await (this.adapter as any).mkdir?.(this.baseDir);
-		} catch (_e) {
-			/* ignore */
+		if (this.isFsAdapter(this.adapter) && this.adapter.mkdir) {
+			await this.adapter.mkdir(this.baseDir);
 		}
 	}
 
@@ -80,7 +77,8 @@ export class DictionaryStore {
 			}
 			this.cache.set(scope, parsed);
 			return parsed;
-		} catch (_err) {
+		} catch (err) {
+			console.error("dict load failed", err);
 			const empty: DictFile = { version: FILE_VERSION, scope, entries: [] };
 			this.cache.set(scope, empty);
 			return empty;
@@ -162,15 +160,10 @@ export class DictionaryStore {
 	async removeScope(scope: string) {
 		this.cache.delete(scope);
 		const filePath = this.getFilePath(scope);
-		try {
-			// @ts-ignore remove exists on FileSystemAdapter
-			if (typeof (this.adapter as any).remove === "function") {
-				await (this.adapter as any).remove(filePath);
-			} else {
-				await this.adapter.write(filePath, JSON.stringify({ version: FILE_VERSION, scope, entries: [] }));
-			}
-		} catch (_e) {
-			/* ignore */
+		if (this.isFsAdapter(this.adapter) && this.adapter.remove) {
+			await this.adapter.remove(filePath);
+		} else {
+			await this.adapter.write(filePath, JSON.stringify({ version: FILE_VERSION, scope, entries: [] }));
 		}
 	}
 
@@ -193,5 +186,11 @@ export class DictionaryStore {
 			h = (h * 33) ^ input.charCodeAt(i);
 		}
 		return (h >>> 0).toString(16).padStart(8, "0").repeat(3).slice(0, 24);
+	}
+
+	private isFsAdapter(
+		adapter: DataAdapter
+	): adapter is DataAdapter & { mkdir?: (path: string) => Promise<void>; remove?: (path: string) => Promise<void> } {
+		return typeof (adapter as any).write === "function";
 	}
 }

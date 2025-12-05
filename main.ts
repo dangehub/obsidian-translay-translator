@@ -359,7 +359,7 @@ export default class KissTranslatorPlugin extends Plugin {
 
 	private toggleOriginal() {
 		this.settings.hideOriginal = !this.settings.hideOriginal;
-		this.saveSettings();
+		void this.saveSettings();
 		if (this.session) {
 			this.session.updateSettings(this.settings);
 			this.session.applyOriginalVisibility();
@@ -448,6 +448,15 @@ export default class KissTranslatorPlugin extends Plugin {
 		return `.obsidian/plugins/${this.manifest.id}/translation`;
 	}
 
+	private applyCss(el: HTMLElement, props: Record<string, string>) {
+		const target = el as any;
+		if (typeof target.setCssProps === "function") {
+			target.setCssProps(props);
+		} else {
+			Object.entries(props).forEach(([k, v]) => el.style.setProperty(k, v));
+		}
+	}
+
 	public flattenSkipSelectors(presets: SkipPreset[]) {
 		return Array.from(
 			new Set(
@@ -465,12 +474,11 @@ export default class KissTranslatorPlugin extends Plugin {
 		this.closeScopeMenu();
 		const menu = document.createElement("div");
 		menu.className = "kiss-scope-menu";
-		menu.style.left = `${x}px`;
-		menu.style.top = `${y}px`;
+		this.applyCss(menu, { left: `${x}px`, top: `${y}px` });
 		const conflictMsg = "KISS Translator: 隐藏原文、悬停原文与编辑模式不能同时开启。";
 		if (this.settings.hideOriginal && this.settings.smartOriginal && this.settings.editMode) {
 			this.settings.smartOriginal = false;
-			this.saveSettings();
+			void this.saveSettings();
 		}
 
 		const title = document.createElement("div");
@@ -499,7 +507,7 @@ export default class KissTranslatorPlugin extends Plugin {
 		const editInput = document.createElement("input");
 		editInput.type = "checkbox";
 		editInput.checked = !!this.settings.editMode;
-		editInput.onchange = async () => {
+		editInput.onchange = () => {
 			const next = !!editInput.checked;
 			if (next && this.settings.hideOriginal && this.settings.smartOriginal) {
 				editInput.checked = false;
@@ -507,7 +515,7 @@ export default class KissTranslatorPlugin extends Plugin {
 				return;
 			}
 			this.settings.editMode = next;
-			await this.saveSettings();
+			void this.saveSettings();
 			this.session?.updateSettings(this.settings);
 			this.uiSession?.updateSettings(this.settings);
 		};
@@ -523,7 +531,7 @@ export default class KissTranslatorPlugin extends Plugin {
 		const hideInput = document.createElement("input");
 		hideInput.type = "checkbox";
 		hideInput.checked = this.settings.hideOriginal;
-		hideInput.onchange = async () => {
+		hideInput.onchange = () => {
 			const next = !!hideInput.checked;
 			if (next && this.settings.smartOriginal && this.settings.editMode) {
 				hideInput.checked = false;
@@ -531,7 +539,7 @@ export default class KissTranslatorPlugin extends Plugin {
 				return;
 			}
 			this.settings.hideOriginal = next;
-			await this.saveSettings();
+			void this.saveSettings();
 			if (this.session) {
 				this.session.updateSettings(this.settings);
 				this.session.applyOriginalVisibility();
@@ -541,7 +549,7 @@ export default class KissTranslatorPlugin extends Plugin {
 				this.settings.smartOriginal = false;
 				smartInput.checked = false;
 				smartInput.disabled = true;
-				await this.saveSettings();
+				void this.saveSettings();
 			} else {
 				smartInput.disabled = false;
 				smartInput.checked = !!this.settings.smartOriginal;
@@ -555,13 +563,12 @@ export default class KissTranslatorPlugin extends Plugin {
 
 		// 悬停展示原文（需隐藏原文开启，缩进显示）
 		const smartRow = document.createElement("label");
-		smartRow.className = "kiss-switch-row";
-		smartRow.style.marginLeft = "16px";
+		smartRow.className = "kiss-switch-row kiss-smart-row-indent";
 		const smartInput = document.createElement("input");
 		smartInput.type = "checkbox";
 		smartInput.checked = !!this.settings.smartOriginal;
 		smartInput.disabled = !this.settings.hideOriginal;
-		smartInput.onchange = async () => {
+		smartInput.onchange = () => {
 			const next = !!smartInput.checked;
 			if (next && this.settings.hideOriginal && this.settings.editMode) {
 				smartInput.checked = false;
@@ -570,7 +577,7 @@ export default class KissTranslatorPlugin extends Plugin {
 				return;
 			}
 			this.settings.smartOriginal = next;
-			await this.saveSettings();
+			void this.saveSettings();
 		};
 		const smartText = document.createElement("span");
 		smartText.textContent = "悬停时展示原文（只在隐藏原文时生效）";
@@ -735,9 +742,9 @@ class KissSettingTab extends PluginSettingTab {
 				text
 					.setPlaceholder("https://api.openai.com/v1/chat/completions")
 					.setValue(this.plugin.settings.apiUrl)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						this.plugin.settings.apiUrl = value.trim();
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					})
 			);
 
@@ -748,9 +755,9 @@ class KissSettingTab extends PluginSettingTab {
 				text
 					.setPlaceholder("sk-...")
 					.setValue(this.plugin.settings.apiKey)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						this.plugin.settings.apiKey = value.trim();
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					})
 			);
 
@@ -761,9 +768,9 @@ class KissSettingTab extends PluginSettingTab {
 				text
 					.setPlaceholder("gpt-4o-mini")
 					.setValue(this.plugin.settings.model)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						this.plugin.settings.model = value.trim();
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					})
 			);
 
@@ -774,9 +781,9 @@ class KissSettingTab extends PluginSettingTab {
 				text
 					.setPlaceholder("auto")
 					.setValue(this.plugin.settings.fromLang)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						this.plugin.settings.fromLang = value.trim() || "auto";
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					})
 			);
 
@@ -787,9 +794,9 @@ class KissSettingTab extends PluginSettingTab {
 				text
 					.setPlaceholder("zh")
 					.setValue(this.plugin.settings.toLang)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						this.plugin.settings.toLang = value.trim() || "zh";
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					})
 			);
 
@@ -800,12 +807,12 @@ class KissSettingTab extends PluginSettingTab {
 				text
 					.setPlaceholder("500")
 					.setValue(String(this.plugin.settings.maxTextLength ?? 500))
-					.onChange(async (value) => {
+					.onChange((value) => {
 						const num = parseInt(value, 10);
 						this.plugin.settings.maxTextLength = Number.isFinite(num)
 							? Math.max(1, num)
 							: 500;
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					})
 			);
 
@@ -813,17 +820,19 @@ class KissSettingTab extends PluginSettingTab {
 			.setName("不翻译的选择器预设")
 			.setDesc("为不同界面创建可重用的选择器预设，匹配的元素及其子节点不会被翻译");
 		presetsHeader.addButton((btn) =>
-			btn.setButtonText("新增预设").onClick(async () => {
-				this.plugin.settings.skipPresets?.push({
-					name: "preset_" + (this.plugin.settings.skipPresets?.length || 0),
-					selectors: [],
-					enabled: true,
-				});
-				this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
-					this.plugin.settings.skipPresets || []
-				);
-				await this.plugin.saveSettings();
-				this.display();
+			btn.setButtonText("新增预设").onClick(() => {
+				void (async () => {
+					this.plugin.settings.skipPresets?.push({
+						name: "preset_" + (this.plugin.settings.skipPresets?.length || 0),
+						selectors: [],
+						enabled: true,
+					});
+					this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
+						this.plugin.settings.skipPresets || []
+					);
+					await this.plugin.saveSettings();
+					this.display();
+				})();
 			})
 		);
 
@@ -833,16 +842,16 @@ class KissSettingTab extends PluginSettingTab {
 			// 名称
 			const nameLabel = row.createEl("div", { text: "名称", cls: "skip-preset-label" });
 			const nameInput = row.createEl("input", { value: preset.name });
-			nameInput.oninput = async (e: any) => {
+			nameInput.oninput = (e: any) => {
 				preset.name = (e.target.value || "").trim();
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 			};
 
 			// 选择器
 			const selLabel = row.createEl("div", { text: "选择器（每行一个）", cls: "skip-preset-label" });
 			const selArea = row.createEl("textarea");
 			selArea.value = preset.selectors.join("\n");
-			selArea.oninput = async (e: any) => {
+			selArea.oninput = (e: any) => {
 				preset.selectors = (e.target.value || "")
 					.split(/\n|,/)
 					.map((s: string) => s.trim())
@@ -850,41 +859,42 @@ class KissSettingTab extends PluginSettingTab {
 				this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
 					this.plugin.settings.skipPresets || []
 				);
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 				this.plugin.session?.updateSettings(this.plugin.settings);
 				this.plugin.uiSession?.updateSettings(this.plugin.settings);
 			};
 
 			// 开关 + 删除
 			const actionRow = row.createDiv({ cls: "skip-preset-actions" });
-			const toggleLabel = actionRow.createEl("span", { text: "启用" });
+			actionRow.createEl("span", { text: "启用" });
 			const toggle = actionRow.createEl("input", { attr: { type: "checkbox" } });
 			toggle.checked = preset.enabled !== false;
-			toggle.onchange = async (e: any) => {
+			toggle.onchange = (e: any) => {
 				preset.enabled = !!e.target.checked;
 				this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
 					this.plugin.settings.skipPresets || []
 				);
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 			};
 
 			const delBtn = actionRow.createEl("button", { text: "删除" });
-			delBtn.onclick = async () => {
-				this.plugin.settings.skipPresets?.splice(index, 1);
-				this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
-					this.plugin.settings.skipPresets || []
-				);
-				await this.plugin.saveSettings();
-				this.display();
+			delBtn.onclick = () => {
+				void (async () => {
+					this.plugin.settings.skipPresets?.splice(index, 1);
+					this.plugin.settings.skipSelectors = this.plugin.flattenSkipSelectors(
+						this.plugin.settings.skipPresets || []
+					);
+					await this.plugin.saveSettings();
+					this.display();
+				})();
 			};
 
-			// 缩进
-			row.style.marginLeft = "16px";
-			nameLabel.style.display = "block";
-			selLabel.style.display = "block";
-			nameInput.style.width = "100%";
-			selArea.style.width = "100%";
-			selArea.style.minHeight = "60px";
+			// 样式类
+			row.addClass("skip-preset-row-indented");
+			nameLabel.addClass("skip-preset-block");
+			selLabel.addClass("skip-preset-block");
+			nameInput.addClass("skip-preset-input");
+			selArea.addClass("skip-preset-textarea");
 		});
 
 		new Setting(containerEl)
@@ -896,9 +906,9 @@ class KissSettingTab extends PluginSettingTab {
 						"You are a translation engine. Preserve meaning and formatting."
 					)
 					.setValue(this.plugin.settings.systemPrompt)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						this.plugin.settings.systemPrompt = value;
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					})
 			);
 
@@ -911,9 +921,9 @@ class KissSettingTab extends PluginSettingTab {
 						"Translate the following text from {from} to {to}. Reply with translation only.\n\n{text}"
 					)
 					.setValue(this.plugin.settings.userPrompt)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						this.plugin.settings.userPrompt = value;
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					})
 			);
 	}
@@ -933,8 +943,7 @@ class UIScopeModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl("h3", { text: "设置当前 UI 词典名" });
-		const input = contentEl.createEl("input", { value: this.value });
-		input.style.width = "100%";
+		const input = contentEl.createEl("input", { value: this.value, cls: "kiss-modal-input" });
 		input.focus();
 
 		const btn = contentEl.createEl("button", { text: "确定" });

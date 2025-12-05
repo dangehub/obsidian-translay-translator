@@ -37,10 +37,7 @@ export class FloatingFab {
 		if (saved && typeof saved.x === "number" && typeof saved.y === "number") {
 			const clamped = this.clampPosition(saved.x, saved.y);
 			this.pos = clamped;
-			fab.style.left = `${clamped.x}px`;
-			fab.style.top = `${clamped.y}px`;
-			fab.style.right = "auto";
-			fab.style.bottom = "auto";
+			this.setPosition(fab, clamped);
 		}
 
 		const startDrag = (evt: MouseEvent | TouchEvent) => {
@@ -71,10 +68,7 @@ export class FloatingFab {
 			const clamped = this.clampPosition(clientX - this.offsetX, clientY - this.offsetY);
 			const { x, y } = clamped;
 			this.pos = { x, y };
-			fab.style.left = `${x}px`;
-			fab.style.top = `${y}px`;
-			fab.style.right = "auto";
-			fab.style.bottom = "auto";
+			this.setPosition(fab, { x, y });
 			this.moved = true;
 		};
 
@@ -83,7 +77,7 @@ export class FloatingFab {
 			this.dragging = false;
 			this.touchStart = null;
 			if (wasDragging && this.moved) {
-				this.plugin.saveFabPosition(this.pos);
+				void this.plugin.saveFabPosition(this.pos);
 			}
 		};
 
@@ -172,10 +166,7 @@ export class FloatingFab {
 			const clamped = this.clampPosition(this.pos.x, this.pos.y);
 			this.pos = clamped;
 			if (this.el) {
-				this.el.style.left = `${clamped.x}px`;
-				this.el.style.top = `${clamped.y}px`;
-				this.el.style.right = "auto";
-				this.el.style.bottom = "auto";
+				this.setPosition(this.el, clamped);
 			}
 		};
 		window.addEventListener("resize", onResize);
@@ -212,6 +203,17 @@ export class FloatingFab {
 			x: Math.max(0, Math.min(maxX, x)),
 			y: Math.max(0, Math.min(maxY, y)),
 		};
+	}
+
+	private setPosition(el: HTMLElement, pos: { x: number; y: number }) {
+		const target = el as any;
+		if (typeof target.setCssProps === "function") {
+			target.setCssProps({ left: `${pos.x}px`, top: `${pos.y}px` });
+		} else {
+			el.style.setProperty("left", `${pos.x}px`);
+			el.style.setProperty("top", `${pos.y}px`);
+		}
+		el.classList.add("kiss-fab-custom");
 	}
 
 	private getPoint(evt: MouseEvent | TouchEvent) {
