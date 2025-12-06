@@ -1020,6 +1020,64 @@ class KissSettingTab extends PluginSettingTab {
 				cls: "mod-warning",
 			});
 		} else if (this.plugin.cloudRegistry.length > 0) {
+			let listContainer: HTMLDivElement | null = null;
+			const renderList = () => {
+				if (!listContainer) return;
+				listContainer.empty();
+				const langFilter = (this.plugin.settings.cloudRegistryLang || "").trim();
+				const query = (this.plugin.cloudRegistryQuery || "").trim().toLowerCase();
+				const filtered = this.plugin.cloudRegistry
+					.filter((item) => {
+						if (langFilter && (item.lang || "").trim() !== langFilter) return false;
+						if (!query) return true;
+						const name = (item.name || "").toLowerCase();
+						const scope = (item.scope || "").toLowerCase();
+						return name.includes(query) || scope.includes(query);
+					})
+					.slice()
+					.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+				if (filtered.length === 0) {
+					listContainer.createEl("div", { text: tr("cloud.noMatches") });
+					return;
+				}
+
+				filtered.forEach((item) => {
+					const row = listContainer!.createEl("div", { cls: "kiss-cloud-row" });
+					const title = row.createEl("div", {
+						text: item.name || item.scope,
+						cls: "kiss-cloud-title",
+					});
+					title.setAttr("title", item.description || "");
+					row.createEl("div", {
+						text: `${tr("cloud.scope")}: ${item.scope}`,
+						cls: "kiss-cloud-scope",
+					});
+					if (item.lang) {
+						row.createEl("div", {
+							text: `${tr("cloud.lang")}: ${formatLangLabel(item.lang)}`,
+							cls: "kiss-cloud-lang",
+						});
+					}
+					const metaLine: string[] = [];
+					if (item.updatedAt)
+						metaLine.push(`${tr("cloud.updated")}: ${new Date(item.updatedAt).toLocaleString()}`);
+					if (item.entryCount) metaLine.push(`${tr("cloud.entries")}: ${item.entryCount}`);
+					if (metaLine.length > 0) {
+						row.createEl("div", { text: metaLine.join(" · "), cls: "kiss-cloud-meta" });
+					}
+					const actions = row.createEl("div", { cls: "kiss-cloud-actions" });
+					const btn = actions.createEl("button", { text: tr("cloud.download") });
+					btn.onclick = async () => {
+						btn.setText(tr("cloud.downloading"));
+						btn.toggleAttribute("disabled", true);
+						await this.plugin.downloadCloudDict(item);
+						btn.setText(tr("cloud.download"));
+						btn.toggleAttribute("disabled", false);
+					};
+				});
+			};
+
 			if (this.plugin.cloudRegistryLangs.length > 1) {
 				new Setting(cloudSection)
 					.setName(tr("cloud.selectLang"))
@@ -1031,9 +1089,9 @@ class KissSettingTab extends PluginSettingTab {
 						dd.onChange(async (value) => {
 							this.plugin.settings.cloudRegistryLang = value;
 							await this.plugin.saveSettings();
-							this.display();
+							renderList();
 						});
-				});
+					});
 			}
 
 			new Setting(cloudSection)
@@ -1045,61 +1103,12 @@ class KissSettingTab extends PluginSettingTab {
 						.setValue(this.plugin.cloudRegistryQuery)
 						.onChange((value) => {
 							this.plugin.cloudRegistryQuery = value;
-							this.display();
+							renderList();
 						})
 				);
 
-			const langFilter = (this.plugin.settings.cloudRegistryLang || "").trim();
-			const query = (this.plugin.cloudRegistryQuery || "").trim().toLowerCase();
-			const filtered = this.plugin.cloudRegistry
-				.filter((item) => {
-					if (langFilter && (item.lang || "").trim() !== langFilter) return false;
-					if (!query) return true;
-					const name = (item.name || "").toLowerCase();
-					const scope = (item.scope || "").toLowerCase();
-					return name.includes(query) || scope.includes(query);
-				})
-				.slice()
-				.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-
-			const list = cloudSection.createEl("div", { cls: "kiss-cloud-list" });
-			if (filtered.length === 0) {
-				list.createEl("div", { text: tr("cloud.noMatches") });
-			}
-			filtered.forEach((item) => {
-				const row = list.createEl("div", { cls: "kiss-cloud-row" });
-				const title = row.createEl("div", {
-					text: item.name || item.scope,
-					cls: "kiss-cloud-title",
-				});
-				title.setAttr("title", item.description || "");
-				row.createEl("div", {
-					text: `${tr("cloud.scope")}: ${item.scope}`,
-					cls: "kiss-cloud-scope",
-				});
-				if (item.lang) {
-					row.createEl("div", {
-						text: `${tr("cloud.lang")}: ${formatLangLabel(item.lang)}`,
-						cls: "kiss-cloud-lang",
-					});
-				}
-				const metaLine: string[] = [];
-				if (item.updatedAt)
-					metaLine.push(`${tr("cloud.updated")}: ${new Date(item.updatedAt).toLocaleString()}`);
-				if (item.entryCount) metaLine.push(`${tr("cloud.entries")}: ${item.entryCount}`);
-				if (metaLine.length > 0) {
-					row.createEl("div", { text: metaLine.join(" · "), cls: "kiss-cloud-meta" });
-				}
-				const actions = row.createEl("div", { cls: "kiss-cloud-actions" });
-				const btn = actions.createEl("button", { text: tr("cloud.download") });
-				btn.onclick = async () => {
-					btn.setText(tr("cloud.downloading"));
-					btn.toggleAttribute("disabled", true);
-					await this.plugin.downloadCloudDict(item);
-					btn.setText(tr("cloud.download"));
-					btn.toggleAttribute("disabled", false);
-				};
-			});
+			listContainer = cloudSection.createEl("div", { cls: "kiss-cloud-list" });
+			renderList();
 		} else {
 			cloudSection.createEl("div", { text: tr("cloud.empty") });
 		}
