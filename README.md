@@ -1,5 +1,8 @@
 # KISS Translator
 
+> [README in English (Updates may not be timely)]
+(docs/README_en.md)
+
 ---
 
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/dangehub/kiss-translator-obsidian/total)
