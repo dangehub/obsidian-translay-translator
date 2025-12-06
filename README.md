@@ -1,7 +1,6 @@
 # KISS Translator
 
-> [README in English (Updates may not be timely)]
-(docs/README_en.md)
+> [README in English (Updates may not be timely)](docs/README_en.md)
 
 ---
 
