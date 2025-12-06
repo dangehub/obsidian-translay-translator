@@ -85,27 +85,6 @@
 - 沉浸式翻译 SDK 不再公开，遂自研实现。
 - 旧版 i18n 插件因修改他人源码无法上架，本插件改为无侵入实现。
 
-## 赞助与打赏
-
-![](docs/奶茶表情包.jpg)
-
----
-
-如果您想支持我的话，可以使用Ko-fi
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y51PPQXN)
-
----
-
-
-如果您是中国大陆用户，也可以使用微信或支付宝
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/支付宝收款码.png" alt="Alipay" width="220"></td>
-    <td align="center"><img src="docs/微信收款码.png" alt="WeChat" width="220"></td>
-  </tr>
-</table>
 
 ## Vibe Coding 警告
 本插件开发基本使用 AI 完成。
@@ -184,6 +163,29 @@
 
 </details>
 
+
+
+## 赞助与打赏
+
+![](docs/奶茶表情包.jpg)
+
+---
+
+如果您想支持我的话，可以使用Ko-fi
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y51PPQXN)
+
+---
+
+
+如果您是中国大陆用户，也可以使用微信或支付宝
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/支付宝收款码.png" alt="Alipay" width="220"></td>
+    <td align="center"><img src="docs/微信收款码.png" alt="WeChat" width="220"></td>
+  </tr>
+</table>
 
 <!-- links -->
 [your-project-path]:dangehub/kiss-translator-obsidian
