@@ -2,11 +2,83 @@
   "languages": {
     "en": [
       {
+        "scope": "Advanced Tables",
+        "name": "Advanced Tables",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/Advanced_Tables.json",
+        "updatedAt": 1764997895000,
+        "entryCount": 9,
+        "version": 1,
+        "lang": "en"
+      },
+      {
         "scope": "BRAT",
         "name": "BRAT",
         "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/BRAT.json",
         "updatedAt": 1764951454000,
         "entryCount": 34,
+        "version": 1,
+        "lang": "en"
+      },
+      {
+        "scope": "Dataview",
+        "name": "Dataview",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/Dataview.json",
+        "updatedAt": 1764997895000,
+        "entryCount": 48,
+        "version": 1,
+        "lang": "en"
+      },
+      {
+        "scope": "Git",
+        "name": "Git",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/Git.json",
+        "updatedAt": 1764997896000,
+        "entryCount": 55,
+        "version": 1,
+        "lang": "en"
+      },
+      {
+        "scope": "Iconize",
+        "name": "Iconize",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/Iconize.json",
+        "updatedAt": 1764997896000,
+        "entryCount": 64,
+        "version": 1,
+        "lang": "en"
+      },
+      {
+        "scope": "Minimal Theme Settings",
+        "name": "Minimal Theme Settings",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/Minimal_Theme_Settings.json",
+        "updatedAt": 1764997897000,
+        "entryCount": 83,
+        "version": 1,
+        "lang": "en"
+      },
+      {
+        "scope": "Omnisearch",
+        "name": "Omnisearch",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/Omnisearch.json",
+        "updatedAt": 1764997897000,
+        "entryCount": 87,
+        "version": 1,
+        "lang": "en"
+      },
+      {
+        "scope": "QuickAdd",
+        "name": "QuickAdd",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/QuickAdd.json",
+        "updatedAt": 1764997898000,
+        "entryCount": 36,
+        "version": 1,
+        "lang": "en"
+      },
+      {
+        "scope": "Templater",
+        "name": "Templater",
+        "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/en/Templater.json",
+        "updatedAt": 1764997898000,
+        "entryCount": 28,
         "version": 1,
         "lang": "en"
       }
@@ -16,7 +88,7 @@
         "scope": "BRAT",
         "name": "BRAT",
         "downloadUrl": "https://raw.githubusercontent.com/dangehub/kiss-translator-obsidian/refs/heads/main/translations/zh/BRAT_zh.json",
-        "updatedAt": 1764957908000,
+        "updatedAt": 1764997900000,
         "entryCount": 34,
         "version": 1,
         "lang": "zh"
