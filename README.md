@@ -15,8 +15,6 @@
 Translay Translator 是一个用来翻译 Obsidian 内任何文本的插件，能一键翻译 UI 和笔记。
 
 > 注：请在[Issues](https://github.com/dangehub/obsidian-translay-translator/issues "Issues · dangehub/obsidian-translay-translator")中反馈bug，在[Discussions](https://github.com/dangehub/obsidian-translay-translator/discussions "dangehub/obsidian-translay-translator · Discussions · GitHub")中提出建议
-> 
-> 如有即时通讯需求，可以加本插件的QQ交流群 `1034829731`
 
 ## 功能亮点
 
@@ -36,6 +34,8 @@ Translay Translator 是一个用来翻译 Obsidian 内任何文本的插件，�
 #### 安装插件
 
 [本插件无法上架官方 Obsidian 市场](https://github.com/obsidianmd/obsidian-releases/pull/8831#issuecomment-3645850703)，请使用 BRAT 插件或手动安装。
+
+> 因为被拒绝上架，本插件开发暂停，未来可能会将Translay与i18n合并，待i18n 2.0发布后考虑此工作
 
 **手动安装方法**：前往 `release` 下载并复制 `main.js`、`manifest.json`、`styles.css` 到 `<Vault>/.obsidian/plugins/aqu-translay-translator/`。
 
